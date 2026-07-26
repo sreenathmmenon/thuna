@@ -1,5 +1,7 @@
 # Thuna — Build Status & Handoff (for planning)
 
+> This is a historical milestone record. For the current complete product implementation, see `docs/FEATURE_MATRIX.md` and `docs/RUNBOOK.md`.
+>
 > Paste this to your planning assistant (ChatGPT/Codex/GLM). It is self-contained.
 
 ## Project

@@ -1,5 +1,7 @@
 # Thuna — Session Completion Report
 
+> This is a historical milestone record. For the current complete product implementation, see `docs/FEATURE_MATRIX.md` and `docs/RUNBOOK.md`.
+>
 > Accurate, verified status of everything done in this session. Hand to GLM/Codex/Claude for continuity.
 
 ## 1. Project identity & decision
