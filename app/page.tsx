@@ -18,6 +18,7 @@ import { HomeScreen, type HomeContextItem } from '../components/elder/HomeScreen
 import { VoiceStatePanel, type VoiceUiState } from '../components/elder/VoiceStatePanel';
 import { TalkButton, type TalkVisualState } from '../components/elder/TalkButton';
 import { RecoveryControls } from '../components/elder/RecoveryControls';
+import { VoiceUpload } from '../components/elder/VoiceUpload';
 import { TaskScreen, type TaskKindUi, type TaskSummaryRow } from '../components/elder/TaskScreen';
 import { ConfirmationScreen, type ConfirmationDetail } from '../components/elder/ConfirmationScreen';
 import { SafetyWarning, type RiskKind } from '../components/elder/SafetyWarning';
@@ -355,6 +356,42 @@ export default function ThunaMobile(): JSX.Element {
     }
   }, [applyTurn, voice]);
 
+  const onDemoVoice = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    setVoice('understanding');
+    try {
+      applyTurn(await clientApi.runPrerecordedVoiceTurn());
+    } catch {
+      setError('stt_failure');
+      setVoice('stt_failure');
+    } finally {
+      setBusy(false);
+    }
+  }, [applyTurn]);
+
+  /**
+   * Uploaded audio takes exactly the same path as the microphone: Saaras
+   * transcription, then the deterministic engine. Only capture changes.
+   */
+  const onUploadedAudio = useCallback(
+    async (file: Blob, filename: string) => {
+      setBusy(true);
+      setError(null);
+      setVoice('understanding');
+      try {
+        applyTurn(await clientApi.uploadAudioTurn(file, filename));
+      } catch (uploadError) {
+        setError('stt_failure');
+        setVoice('stt_failure');
+        throw uploadError;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [applyTurn],
+  );
+
   /* At most three context items — Home must never crowd. */
   const contextItems = useMemo<HomeContextItem[]>(() => {
     const items: HomeContextItem[] = [];
@@ -624,6 +661,16 @@ export default function ThunaMobile(): JSX.Element {
           ) : null}
 
           <div className="mt-6">
+            <button
+              type="button"
+              className="btn btn--quiet"
+              disabled={busy}
+              onClick={() => void onDemoVoice()}
+            >
+              Use demo voice
+            </button>
+            <VoiceUpload onAudio={onUploadedAudio} busy={busy} />
+
             <label className="section-label" htmlFor="typed-input">
               Or type instead
             </label>

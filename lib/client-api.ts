@@ -120,6 +120,13 @@ export interface ClientApi {
   requestMicrophone(): Promise<'granted' | 'demo-only'>;
   finishMicrophoneTranscript(): Promise<string>;
   finishMicrophoneTurn(): Promise<VoiceTurn>;
+  runPrerecordedVoiceTurn(): Promise<VoiceTurn>;
+  /**
+   * Run a full voice turn from an uploaded audio file, through the same Saaras
+   * route the microphone uses. This bypasses live recording without bypassing
+   * any engine or safety logic.
+   */
+  uploadAudioTurn(file: Blob, filename?: string): Promise<VoiceTurn>;
   interpretDemoText(text: string): Promise<VoiceTurn>;
   createMedicineReminder(delaySeconds?: number): Promise<string>;
   triggerDueRoutines(): Promise<void>;
@@ -418,7 +425,11 @@ async function speakGuidance(
 
 async function processTranscript(
   transcript: string,
-  inputMode: 'Live Saaras v3' | 'Typed demo transcript',
+  inputMode:
+    | 'Live Saaras v3'
+    | 'Prerecorded Saaras audio'
+    | 'Uploaded Saaras audio'
+    | 'Typed demo transcript',
 ): Promise<VoiceTurn> {
   const data = await fetchJson<SessionTurnResponse>('/api/session', {
     method: 'POST',
@@ -566,7 +577,12 @@ export const clientApi: ClientApi = {
     recorderStream = null;
     audioChunks = [];
     const form = new FormData();
-    form.append('audio', audio, 'thuna-recording.webm');
+    const extension = audio.type.includes('mp4')
+      ? 'mp4'
+      : audio.type.includes('wav')
+        ? 'wav'
+        : 'webm';
+    form.append('audio', audio, `thuna-recording.${extension}`);
     const stt = await fetchJson<{ transcript: string }>('/api/stt', {
       method: 'POST',
       body: form,
@@ -577,6 +593,31 @@ export const clientApi: ClientApi = {
   async finishMicrophoneTurn() {
     const transcript = await this.finishMicrophoneTranscript();
     return processTranscript(transcript, 'Live Saaras v3');
+  },
+
+  async runPrerecordedVoiceTurn() {
+    const response = await fetch('/audio/order-usual.wav', { cache: 'no-store' });
+    if (!response.ok) throw new Error('The demo voice recording is unavailable.');
+    const form = new FormData();
+    form.append('audio', await response.blob(), 'order-usual.wav');
+    const stt = await fetchJson<{ transcript: string }>('/api/stt', {
+      method: 'POST',
+      body: form,
+    });
+    return processTranscript(stt.transcript, 'Prerecorded Saaras audio');
+  },
+
+  async uploadAudioTurn(file, filename = 'upload.wav') {
+    const form = new FormData();
+    form.append('audio', file, filename);
+    const stt = await fetchJson<{ transcript: string }>('/api/stt', {
+      method: 'POST',
+      body: form,
+    });
+    if (!stt.transcript?.trim()) {
+      throw new Error('I could not hear anything in that recording.');
+    }
+    return processTranscript(stt.transcript, 'Uploaded Saaras audio');
   },
 
   async interpretDemoText(text) {
