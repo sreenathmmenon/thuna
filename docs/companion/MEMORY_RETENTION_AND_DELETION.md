@@ -114,7 +114,7 @@ as one.
 5. **Deleting a routine deletes its history** (`MEMORY_MODEL.md` §6).
 6. **Deleting a person cascades** to roles, grants, open loops and shares
    (`RELATIONSHIP_MEMORY.md` §6).
-7. **Deleting an open loop closes it first** as `ABANDONED`, so nothing is left waiting on a reply
+7. **Deleting an open loop closes it first** as `CANCELLED`, so nothing is left waiting on a reply
    that will never come (`COMPANION_MEMORY_SCHEMA.md` §3.4).
 
 ### `deletionState`, and why it is not a tombstone

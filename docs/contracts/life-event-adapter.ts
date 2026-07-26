@@ -78,9 +78,10 @@ export type LifeEventState =
   | 'DUE'
   | 'ACTIVE'
   | 'COMPLETED'
+  | 'SNOOZED'
   | 'MISSED'
   | 'CANCELLED'
-  | 'EXPIRED';
+  | 'ESCALATED';
 
 /**
  * What kind of thing this is. Drives brief grouping and priority, not behaviour —

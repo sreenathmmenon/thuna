@@ -1,8 +1,20 @@
+import type {
+  CandidateField,
+  ContinuitySnapshot,
+  DailyBrief,
+  FamilyAttentionRequest,
+  FamilyRequestState,
+  InboxCandidate,
+  LifeEvent,
+  PendingLoop,
+} from './continuity/types';
+
 export type ProductArea =
   | 'home'
   | 'talk'
   | 'help'
   | 'routines'
+  | 'life'
   | 'history'
   | 'family'
   | 'settings';
@@ -106,6 +118,7 @@ export interface VoiceTurn {
 export interface ClientApi {
   loadHome(): Promise<HomeSnapshot>;
   requestMicrophone(): Promise<'granted' | 'demo-only'>;
+  finishMicrophoneTranscript(): Promise<string>;
   finishMicrophoneTurn(): Promise<VoiceTurn>;
   interpretDemoText(text: string): Promise<VoiceTurn>;
   createMedicineReminder(delaySeconds?: number): Promise<string>;
@@ -117,6 +130,35 @@ export interface ClientApi {
   ): Promise<void>;
   requestFamilyHelp(routineId?: string): Promise<void>;
   setFamilyConsent(enabled: boolean): Promise<void>;
+  loadContinuity(): Promise<ContinuitySnapshot>;
+  intakeContinuity(text: string, source: 'VOICE' | 'TYPED'): Promise<InboxCandidate>;
+  correctContinuityCandidate(
+    id: string,
+    key: string,
+    value: CandidateField['value'],
+  ): Promise<InboxCandidate>;
+  confirmContinuityCandidate(id: string): Promise<{
+    lifeEvent?: LifeEvent;
+    pendingLoop?: PendingLoop;
+    familyRequest?: FamilyAttentionRequest;
+  }>;
+  updateLifeEvent(
+    id: string,
+    action: 'CORRECT_EVENT' | 'COMPLETE_EVENT' | 'SNOOZE_EVENT' | 'CANCEL_EVENT',
+    details?: Record<string, unknown>,
+  ): Promise<LifeEvent>;
+  updatePendingLoop(
+    id: string,
+    action: 'SNOOZE_LOOP' | 'COMPLETE_LOOP' | 'CANCEL_LOOP',
+    details?: Record<string, unknown>,
+  ): Promise<PendingLoop>;
+  loadDailyBrief(): Promise<DailyBrief>;
+  setFamilyContentConsent(granted: boolean): Promise<void>;
+  createContinuityFamilyRequest(purpose: string): Promise<FamilyAttentionRequest>;
+  advanceContinuityFamilyRequest(
+    id: string,
+    target: FamilyRequestState | 'OFFERED',
+  ): Promise<FamilyAttentionRequest>;
   updatePreferences(language: 'English' | 'Malayalam', pace: 'Normal' | 'Slow'): Promise<void>;
   resetDemo(): Promise<HomeSnapshot>;
 }
@@ -288,6 +330,17 @@ async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promi
     throw new Error(data.error?.message || data.message || `Request failed (${response.status})`);
   }
   return data;
+}
+
+async function continuityAction<T>(
+  action: string,
+  details: Record<string, unknown> = {},
+): Promise<T> {
+  return fetchJson<T>('/api/continuity', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, ...details }),
+  });
 }
 
 function fallbackTurn(text: string, reason: string): VoiceTurn {
@@ -495,7 +548,7 @@ export const clientApi: ClientApi = {
     }
   },
 
-  async finishMicrophoneTurn() {
+  async finishMicrophoneTranscript() {
     if (!recorder || !recorderStream) {
       throw new Error('No microphone recording is active.');
     }
@@ -518,7 +571,12 @@ export const clientApi: ClientApi = {
       method: 'POST',
       body: form,
     });
-    return processTranscript(stt.transcript, 'Live Saaras v3');
+    return stt.transcript;
+  },
+
+  async finishMicrophoneTurn() {
+    const transcript = await this.finishMicrophoneTranscript();
+    return processTranscript(transcript, 'Live Saaras v3');
   },
 
   async interpretDemoText(text) {
@@ -594,6 +652,98 @@ export const clientApi: ClientApi = {
     });
   },
 
+  async loadContinuity() {
+    const data = await fetchJson<{ continuity: ContinuitySnapshot }>('/api/continuity');
+    return data.continuity;
+  },
+
+  async intakeContinuity(text, source) {
+    const data = await continuityAction<{ candidate: InboxCandidate }>('INTAKE', {
+      text,
+      source,
+    });
+    return data.candidate;
+  },
+
+  async correctContinuityCandidate(id, key, value) {
+    const data = await continuityAction<{ candidate: InboxCandidate }>('CORRECT_CANDIDATE', {
+      id,
+      key,
+      value,
+    });
+    return data.candidate;
+  },
+
+  async confirmContinuityCandidate(id) {
+    return continuityAction('CONFIRM_CANDIDATE', { id, response: 'Yes' });
+  },
+
+  async updateLifeEvent(id, action, details = {}) {
+    const data = await continuityAction<{ lifeEvent: LifeEvent }>(action, {
+      id,
+      ...details,
+    });
+    return data.lifeEvent;
+  },
+
+  async updatePendingLoop(id, action, details = {}) {
+    const data = await continuityAction<{ pendingLoop: PendingLoop }>(action, {
+      id,
+      ...details,
+    });
+    return data.pendingLoop;
+  },
+
+  async loadDailyBrief() {
+    const data = await continuityAction<{ brief: DailyBrief }>('DAILY_BRIEF', {
+      onDemand: true,
+    });
+    return data.brief;
+  },
+
+  async setFamilyContentConsent(granted) {
+    await this.setFamilyConsent(granted);
+    await continuityAction('SET_FAMILY_CONTENT_CONSENT', {
+      contactId: 'sree',
+      granted,
+      explicitApproval: true,
+    });
+  },
+
+  async createContinuityFamilyRequest(purpose) {
+    const data = await continuityAction<{ familyRequest: FamilyAttentionRequest }>(
+      'CREATE_FAMILY_REQUEST',
+      {
+        contactId: 'sree',
+        purpose,
+        disclosure: 'Appa asked Sree to follow up.',
+        explicitApproval: true,
+      },
+    );
+    return data.familyRequest;
+  },
+
+  async advanceContinuityFamilyRequest(id, target) {
+    if (target === 'OFFERED') {
+      const data = await continuityAction<{
+        request: FamilyAttentionRequest;
+      }>('OFFER_FAMILY_REQUEST', { id });
+      return data.request;
+    }
+    const data = await continuityAction<{ familyRequest: FamilyAttentionRequest }>(
+      'TRANSITION_FAMILY_REQUEST',
+      {
+        id,
+        target,
+        scheduledFor: target === 'SCHEDULED'
+          ? new Date(Date.now() + 60 * 60 * 1000).toISOString()
+          : undefined,
+        response: target === 'ELDER_CONFIRMED' ? 'Yes' : undefined,
+      },
+    );
+    return data.familyRequest;
+  },
+
   async updatePreferences(language, pace) {
     await fetchJson('/api/memory/preferences', {
       method: 'PATCH',
@@ -609,6 +759,7 @@ export const clientApi: ClientApi = {
     await Promise.allSettled([
       fetch('/api/memory/reset', { method: 'POST' }),
       fetch('/api/routines', { method: 'DELETE' }),
+      fetch('/api/continuity', { method: 'DELETE' }),
       fetch(`/api/session?sessionId=${encodeURIComponent(SESSION_ID)}`, { method: 'DELETE' }),
     ]);
     return this.loadHome();

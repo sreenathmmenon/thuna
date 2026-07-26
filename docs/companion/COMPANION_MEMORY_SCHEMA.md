@@ -161,7 +161,7 @@ What this document fixes is only their envelope treatment:
 |---|---|---|
 | `expiresAt` | Not set while open. Set on close, to the closing category's retention. | Event date + grace period |
 | `sharingClass` | Inherits from what created it. A help request the elder initiated is `ELDER_INITIATED`; a story loop is `SHAREABLE_WITH_CONSENT` scoped to who it was shared with. | `SHAREABLE_WITH_CONSENT` |
-| Deletion | Deleting an open loop closes it as `ABANDONED` first, so nothing is left waiting on a reply that will never come | Normal |
+| Deletion | Deleting an open loop closes it as `CANCELLED` first, so nothing is left waiting on a reply that will never come | Normal |
 
 Do not infer loop states or event states from this table. Read the owning documents.
 

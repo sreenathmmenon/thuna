@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "lifeEvents": [],
+  "pendingLoops": [],
+  "familyRequests": [],
+  "familyContentConsent": [],
+  "consentHistory": [],
+  "quietHours": {
+    "startHour": 21,
+    "endHour": 7
+  },
+  "dailyBriefEnabled": false
+}

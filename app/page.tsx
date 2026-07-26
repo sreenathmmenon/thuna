@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DemoInspector } from '../components/DemoInspector';
+import { ContinuityView } from '../components/ContinuityView';
 import { DigitalHelpView } from '../components/DigitalHelpView';
 import { GuidancePanel } from '../components/GuidancePanel';
 import { ProductNavigation } from '../components/ProductNavigation';
@@ -363,6 +364,11 @@ export default function Home() {
               </button>
 
               <div className="home-summary">
+                <button className="summary-card" type="button" onClick={() => navigate('life')}>
+                  <span className="summary-card__icon" aria-hidden="true">◇</span>
+                  <span><small>Plans and follow-ups</small><strong>Remember this</strong><span>Events, bills and promises</span></span>
+                  <span aria-hidden="true">→</span>
+                </button>
                 <button className="summary-card" type="button" onClick={() => navigate('routines')}>
                   <span className="summary-card__icon" aria-hidden="true">◷</span>
                   <span><small>Next check-in</small><strong>{snapshot.nextRoutine.title}</strong><span>{snapshot.nextRoutine.dueLabel}</span></span>
@@ -490,6 +496,8 @@ export default function Home() {
               <RoutineHistory routines={visibleRoutines} history={snapshot.history} />
             </section>
           ) : null}
+
+          {area === 'life' ? <ContinuityView /> : null}
 
           {area === 'history' ? (
             <section aria-labelledby="history-title">

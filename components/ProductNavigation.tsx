@@ -10,6 +10,7 @@ const items: Array<{ id: ProductArea; label: string; icon: string }> = [
   { id: 'talk', label: 'Talk', icon: '●' },
   { id: 'help', label: 'Digital help', icon: '✦' },
   { id: 'routines', label: 'My routines', icon: '◷' },
+  { id: 'life', label: 'My life', icon: '◇' },
   { id: 'history', label: 'History', icon: '✓' },
   { id: 'family', label: 'Trusted family', icon: '♢' },
   { id: 'settings', label: 'Settings', icon: '⚙' },

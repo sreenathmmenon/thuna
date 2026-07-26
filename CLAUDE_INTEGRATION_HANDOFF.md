@@ -355,3 +355,255 @@ npx tsc --noEmit && npm test && npm run build
 
 **Read first:** `docs/integrations/SWIGGY_CODEX_INTEGRATION_GUIDE.md` §6 (the five rules) and
 `docs/companion/ROUTINE_ENGINE.md` §1 (silence is not completion).
+
+---
+---
+
+# 14. Task 2 — Continuity Companion Expansion
+
+> Added 2026-07-26, same worktree and branch. **Zero production files modified.**
+> Expands the companion architecture from a reminder system into a **general continuity companion**
+> that remembers life events, commitments, relationships and unfinished tasks — without hardcoding
+> each scenario.
+
+## 14.1 The central design claim
+
+The first package described a routine engine. This one describes a **generic continuity engine**.
+
+The test: **adding a new event type must not require an engine change.** `WEDDING`, `BILL`,
+`RENEWAL` and `SERVICE_VISIT` differ only in their *declarative reminder policy*, not in code.
+`COMPANION_FEATURE_MATRIX.md` §4.2 makes this checkable — if adding `BILL` needs code, the
+`LifeEvent` design is wrong.
+
+## 14.2 Files created (44 new, 3 updated)
+
+**Part 1 — Life events (5):** `LIFE_EVENTS_ENGINE.md`, `LIFE_EVENT_SCHEMA.md`,
+`REMINDER_POLICY_ENGINE.md`, `EVENT_EXTRACTION_POLICY.md`, `LIFE_EVENT_DEMO_SCENARIOS.md`
+
+**Part 2 — Pending loops (3):** `PENDING_LOOPS.md`, `PROMISE_EXTRACTION_POLICY.md`,
+`FOLLOW_UP_ENGINE.md`
+
+**Part 3 — Proactive companion (4):** `PROACTIVE_COMPANION_POLICY.md`, `REGULAR_CHECKIN_ENGINE.md`,
+`QUIET_HOURS_AND_FREQUENCY.md`, `CONVERSATION_CONTINUITY.md`
+
+**Part 4 — Human bridge (4):** `HUMAN_ATTENTION_BRIDGE.md`, `CIRCLE_OF_TRUST.md`,
+`FAMILY_REQUEST_LIFECYCLE.md`, `MINIMUM_DISCLOSURE_POLICY.md`
+
+**Part 5 — Story loops (2):** `FAMILY_STORY_LOOPS.md`, `STORY_CONSENT_AND_PROVENANCE.md`
+
+**Part 6 — Adaptive guidance (3):** `ADAPTIVE_GUIDANCE.md`, `CAPABILITY_MEMORY.md`,
+`INDEPENDENCE_METRICS.md`
+
+**Part 7 — Extended memory (5):** `COMPANION_MEMORY_SCHEMA.md`, `HOUSEHOLD_MEMORY.md`,
+`RELATIONSHIP_MEMORY.md`, `MEMORY_RETENTION_AND_DELETION.md`,
+`MEMORY_CORRECTION_AND_SUPERSESSION.md`
+
+**Part 8 — Universal inbox (3):** `UNIVERSAL_INBOX.md`, `INPUT_CLASSIFICATION_POLICY.md`,
+`CONFIRM_BEFORE_MEMORY.md`
+
+**Part 9 — Screen/document/safety (5):** `SCREEN_CONTEXT_ASSISTANCE.md`,
+`DOCUMENT_TO_EVENT_PIPELINE.md`, `DIGITAL_SAFETY_POLICY.md`, `RISK_SIGNAL_MODEL.md`,
+`TRUSTED_PERSON_HANDOFF.md`
+
+**Part 10 — Service capability (5 TS):** `service-capability-adapter.ts`, `life-event-adapter.ts`,
+`calendar-adapter.ts`, `document-input-adapter.ts`, `prepared-action.ts`
+
+**Part 11 — Platform controls (9):** `AUTONOMY_LEVELS.md`, `ACTION_PERMISSION_MODEL.md`,
+`DRAFT_BEFORE_ACTION.md`, `TEACH_BACK_POLICY.md`, `COMPREHENSION_VERIFICATION.md`,
+`DAILY_LIFE_BRIEF.md`, `PRIORITY_AND_DEDUP_POLICY.md`, `INTERRUPTION_AND_RESUME.md`,
+`CROSS_CHANNEL_CONTINUITY.md`
+
+**Part 12 — Integration package (3):** `COMPANION_FEATURE_MATRIX.md`, `COMPANION_DEMO_SCRIPT.md`,
+`CODEX_COMPANION_INTEGRATION_PROMPT.md`
+
+## 14.3 Canonical schemas — defined exactly once
+
+Deliberately assigned to a single owner each, to prevent competing definitions:
+
+| Schema | Defined in | Lifecycle |
+|---|---|---|
+| **MemoryRecord** | `COMPANION_MEMORY_SCHEMA.md` §2 | envelope + 10 categories |
+| **LifeEvent** | `LIFE_EVENT_SCHEMA.md` | DRAFT → NEEDS_CONFIRMATION → CONFIRMED → UPCOMING → DUE → ACTIVE → COMPLETED/SNOOZED/MISSED/CANCELLED/ESCALATED |
+| **PendingLoop** | `PENDING_LOOPS.md` | OPEN → SCHEDULED → DUE → ACTIVE → COMPLETED/SNOOZED/CANCELLED/ESCALATED |
+| **PreparedAction** | `prepared-action.ts` | DRAFT → VALIDATED → PRESENTED_TO_ELDER → CONFIRMED → EXECUTED → RECONCILED, or CANCELLED/FAILED |
+| **Routine** | `ROUTINE_ENGINE.md` (task 1) | unchanged — reused, not redefined |
+| **Consent** | `notification-adapter.ts` (task 1) | unchanged — reused, not redefined |
+| **ServiceCapability** | `service-capability-adapter.ts` | umbrella over existing food/grocery/dining/ride adapters |
+
+The 10 memory categories: `profile`, `operational`, `routine`, `episodic`, `relationship`,
+`capability`, `consent`, `pending_loop`, `life_event`, `provider_service`.
+
+## 14.4 Reuse from task 1 (no duplication)
+
+`MEMORY_MODEL.md` stays the conceptual foundation — `COMPANION_MEMORY_SCHEMA.md` extends its four
+categories to ten without contradicting it. `ROUTINE_ENGINE.md`, `FAMILY_CONSENT_POLICY.md`,
+`CHECKIN_CONVERSATION_POLICY.md`, `COMPANION_PRODUCT_MODEL.md` and all six original contracts are
+referenced, never rewritten. `PreparedAction` **generalises** the food `ConfirmationToken` pattern
+rather than competing with it; `ActionOutcomeStatus` is a type alias of `PlacementStatus`, so the
+three-state `PLACED | REJECTED | UNKNOWN` vocabulary cannot drift.
+
+## 14.5 Conflicts found and resolved
+
+| Conflict | Resolution |
+|---|---|
+| `PendingLoop` terminal state: `ABANDONED` (assumed) vs `CANCELLED` (canonical) | Fixed 2 files to `CANCELLED`. Abandonment is a *process* ending in `CANCELLED`, not a state |
+| `LifeEventState` mirror invented `EXPIRED`, omitted `SNOOZED`/`ESCALATED` | Corrected the mirror in `life-event-adapter.ts` to match `LIFE_EVENT_SCHEMA.md` |
+| Possible `RISK_DETECTED` notification category | Verified absent — deliberately not added. Risk handoff reuses `ELDER_REQUESTED_HELP` |
+
+## 14.6 Open items for the product owner
+
+1. **Story-sharing notification category.** `FAMILY_STORY_LOOPS.md` §8.3 declines to extend
+   `NotificationCategory` unilaterally, since the contract states that adding a category is a
+   product-level ethics decision. **This is the one genuine open decision.**
+2. **`Evidence.quote`** permits a short verbatim elder phrase, bounded and expiring. It brushes
+   against the no-transcripts rule; worth a second look.
+3. **Channel-bound confirmations** — a channel change invalidates a confirmation even within TTL.
+   Stricter than required; confirm the product wants this.
+
+## 14.7 Validation
+
+| Check | Result |
+|---|---|
+| Production files unchanged | ✅ `git diff -- lib/ app/ tests/` empty |
+| All 11 draft contracts typecheck | ✅ 0 errors |
+| Task 1 experiment tests | ✅ 30/30 still pass |
+| Competing schema definitions | ✅ none — each defined once |
+| Credentials / tokens / personal data | ✅ none committed |
+| Correction, consent, provenance preserved | ✅ enforced across all files |
+
+## 14.8 Minimal Codex integration order
+
+**Phase 1 (no credentials needed):** LifeEvent schema → PendingLoop schema → declarative reminder
+policy → 10-category memory → consent & permission models.
+
+**Phase 2 (no credentials needed):** wedding invitation → bill reminder → regular check-in →
+family-call request → correction flow → daily brief.
+
+**Phase 3 (partly blocked):** document extraction → Swiggy adapter (🔌 access) → outbound calling
+(🔌 credentials) → story loops → adaptive guidance.
+
+**Start with:** `Add LifeEvent and PendingLoop schemas with declarative reminder policy`.
+
+**The Codex prompt is at `docs/companion/CODEX_COMPANION_INTEGRATION_PROMPT.md` §2** — copy from
+"PROMPT FOR CODEX BEGINS" onward.
+
+## 14.9 Blockers
+
+Unchanged from task 1, and **none block the companion work**:
+
+- **Swiggy MCP production access** — invite-based (§4). Blocks only Phase 3 step 13.
+- **Telephony credentials + Indian regulatory review** — blocks only real calling; the mock is not blocked.
+- **Delegated-auth documentation 404s** — do not guess; obtain from `builders@swiggy.in`.
+
+Phases 1 and 2 require **no external access whatsoever**.
+
+---
+---
+
+# 15. Task 3 — Elder-First Mobile Experience
+
+> Added 2026-07-26, same worktree and branch. **Zero production files modified.**
+> A complete, implementation-ready mobile UX package for GLM to build immediately after Codex
+> finishes the continuity-companion runtime.
+
+## 15.1 Package location
+
+**`docs/mobile-ui/`** — 20 specification documents.
+
+**The GLM prompt is at `docs/mobile-ui/GLM_MOBILE_IMPLEMENTATION_PROMPT.md` §2** — copy from
+"PROMPT FOR GLM BEGINS" onward.
+
+| Group | Files |
+|---|---|
+| Foundations | `MOBILE_PRODUCT_PRINCIPLES`, `INFORMATION_ARCHITECTURE`, `VISUAL_DESIGN_SYSTEM`, `COMPONENT_SPECIFICATION`, `MOBILE_STATE_MAP` |
+| Screens | `ELDER_HOME_SCREEN`, `VOICE_INTERACTION_STATES`, `TASK_SCREEN_SYSTEM`, `ROUTINE_AND_CHECKIN_SCREENS`, `LIFE_EVENTS_AND_REMEMBER_THIS`, `DAILY_BRIEF_SCREEN`, `FAMILY_HANDOFF_SCREEN`, `MEMORY_AND_PRIVACY_SCREEN`, `SAFETY_AND_CONFIRMATION_SCREENS`, `ERROR_AND_RECOVERY_STATES` |
+| Quality | `ACCESSIBILITY_SPECIFICATION`, `MALAYALAM_CONTENT_GUIDE`, `MOBILE_UI_ACCEPTANCE_CHECKLIST`, `DEMO_SCREEN_SEQUENCE` |
+| Handoff | `GLM_MOBILE_IMPLEMENTATION_PROMPT` |
+
+## 15.2 The product goal
+
+> **Thuna must feel easier than calling one's child for help.**
+
+Three primary destinations only — **Home, Talk, Reminders** — with Talk dominant. Family help appears
+contextually, never as a dashboard. The Demo Inspector is a separate hidden route, never elder-facing.
+
+Viewports: **390×844** primary, **360×800** and **430×932** supported, with safe-area insets,
+Android chrome, iPhone standalone PWA, Malayalam two-line wrapping, and one-handed reach.
+
+## 15.3 Integration order for GLM
+
+1. Design tokens (`app/globals.css`)
+2. ElderShell + BottomNavigation
+3. TalkButton + VoiceStatePanel (16 voice states)
+4. Home
+5. Task screen system (one schema, all task types)
+6. Confirmation + Safety (full-screen, visually distinct)
+7. Completion + Errors
+8. Reminders / CheckInScreen (one data-driven component, 8 states)
+9. Life events / Remember this (candidate → confirm)
+10. Daily brief · Family handoff · Memory & privacy
+11. Accessibility pass
+12. Malayalam pass
+
+Commit after each green step. Steps 1–7 alone produce a complete demonstrable experience.
+
+**Build against typed mocks in `lib/client-api.ts` first**, then switch that one file to live calls —
+so every engine dependency stays in a single place.
+
+## 15.4 Expected contract verification
+
+The mobile specs were written **before** Codex finished. GLM must verify contract names against the
+latest release and record results in `MOBILE_STATE_MAP.md` §9.
+
+**Verified as existing today** (read from `lib/types.ts`): `EngineAction` (9 values),
+`ScreenState.status` (6 values), `EngineResponse.speak/screen/skillId/clearMic`,
+`ScreenState.fields/deliveryFee/total/step`, `SessionCtx.pace/awaitingConfirmation`,
+`SimulatedReceipt.simulated`, and the `ORDER_FOOD` / `PHONE_HELP` / `SEND_PAYMENT` skills.
+
+**⚠️ Proposed — does not exist yet, names may differ:** `Routine`/`RoutineState`,
+`LifeEvent`/`LifeEventState`, `PendingLoop`, `PreparedAction`, `MemoryRecord` projection,
+`ConsentGrant`, `DailyBrief`/`BriefItem`, `RiskSignal`, and the voice route shapes.
+
+**Rule: where a documented name differs from the real one, the real one wins.** Adapt
+`lib/client-api.ts` — never the engine.
+
+## 15.5 Expected merge-conflict files
+
+| Path | Risk | Note |
+|---|---|---|
+| `app/page.tsx` | **High** | GLM rebuilds it; conflicts with any concurrent UI work |
+| `app/globals.css` | **High** | Design tokens replace existing styles |
+| `lib/client-api.ts` | **Medium** | The single engine↔UI adapter |
+| `components/**` | **Low** | Mostly new files |
+| `public/**` | **Low** | Assets and screenshots |
+| `lib/engine.ts`, `lib/router.ts`, `lib/skills/**`, `tests/**` | **None** | Not modified — off-limits to GLM |
+
+Recommended: GLM works in its own worktree (`glm/mobile-ui`) off the post-Codex release, so backend
+and UI never race.
+
+## 15.6 Safety properties carried into the UI
+
+The mobile layer preserves, rather than reimplements, the engine's guarantees:
+
+- Only an explicit affirmative confirms — silence, timeout and backgrounding never do
+- A correction **voids** a pending confirmation and forces a fresh read-back
+- Safety pre-empts everything, including a pending confirmation
+- Ambiguous provider results say "let me check" and claim nothing definitive
+- Simulated external actions are visibly labelled `SIMULATED`
+- No engine state, event log, correction history, or identifier is ever shown to an elder
+
+## 15.7 Validation
+
+| Check | Result |
+|---|---|
+| Production files unchanged | ✅ `git diff -- app/ components/ lib/ tests/ package.json` empty |
+| Diff scope | ✅ `docs/mobile-ui/` + handoff only |
+| Prior contracts still typecheck | ✅ 11 files, 0 errors |
+| Prior experiment tests | ✅ 30/30 |
+| No early-stage or placeholder product language | ✅ reviewed |
+| Copy reviewed for dignity | ✅ §13 of the acceptance checklist |
+
+## 15.8 Blockers
+
+**None.** The mobile package is UI-only and requires no credentials or external access. Its one
+dependency is Codex finishing, so GLM starts from a green release.
