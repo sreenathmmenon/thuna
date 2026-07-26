@@ -33,6 +33,7 @@ build/
 *.log
 tmp/
 .cache/
+data/private/
 
 # build artifacts
 .work/

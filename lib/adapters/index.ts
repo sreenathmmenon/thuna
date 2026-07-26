@@ -1,8 +1,9 @@
 import type { FoodCommerceAdapter } from './food-commerce';
 import { MockFoodCommerceAdapter } from './mock-food-commerce';
 import { SwiggyFoodMcpAdapter } from './swiggy-food-mcp';
+import { getSwiggyRuntime } from '../integrations/swiggy/runtime';
 
-export type FoodAdapterSelection = 'mock' | 'swiggy-mcp';
+export type FoodAdapterSelection = 'mock' | 'swiggy';
 
 export interface FoodAdapterConfig {
   selection: FoodAdapterSelection;
@@ -15,8 +16,8 @@ export function readFoodAdapterConfig(
   env: FoodAdapterEnvironment = process.env,
 ): FoodAdapterConfig {
   return {
-    selection: env.THUNA_FOOD_ADAPTER === 'swiggy-mcp'
-      ? 'swiggy-mcp'
+    selection: ['swiggy', 'swiggy-mcp'].includes(env.THUNA_FOOD_ADAPTER ?? '')
+      ? 'swiggy'
       : 'mock',
     realSwiggyOrderEnabled:
       env.THUNA_ENABLE_REAL_SWIGGY_ORDER === 'true',
@@ -27,8 +28,8 @@ export function createFoodCommerceAdapter(
   env: FoodAdapterEnvironment = process.env,
 ): FoodCommerceAdapter {
   const config = readFoodAdapterConfig(env);
-  if (config.selection === 'swiggy-mcp') {
-    return new SwiggyFoodMcpAdapter(config.realSwiggyOrderEnabled);
+  if (config.selection === 'swiggy') {
+    return getSwiggyRuntime().adapter;
   }
   return new MockFoodCommerceAdapter();
 }

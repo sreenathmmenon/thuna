@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { SwiggyFoodOrderView } from './SwiggyFoodOrderView';
+
 export type FoodOrderStage = 'review' | 'corrected' | 'complete';
 
 interface FoodOrderViewProps {
@@ -17,6 +20,25 @@ export function FoodOrderView({
   onConfirm,
   onBack,
 }: FoodOrderViewProps) {
+  const [providerStatus, setProviderStatus] = useState<{
+    mode: 'mock' | 'swiggy';
+    state: string;
+    connected: boolean;
+    message: string;
+    realOrderEnabled: boolean;
+  }>();
+
+  useEffect(() => {
+    void fetch('/api/integrations/swiggy', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then(setProviderStatus)
+      .catch(() => undefined);
+  }, []);
+
+  if (providerStatus?.mode === 'swiggy') {
+    return <SwiggyFoodOrderView status={providerStatus} onBack={onBack} />;
+  }
+
   const isComplete = stage === 'complete';
   const item = stage === 'review' ? 'Masala Dosa' : 'Plain Dosa';
   const itemPrice = stage === 'review' ? 120 : 100;
@@ -73,4 +95,3 @@ export function FoodOrderView({
     </section>
   );
 }
-

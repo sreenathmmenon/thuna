@@ -28,7 +28,7 @@ describe('food commerce adapter selection', () => {
     expect(createFoodCommerceAdapter({})).toBeInstanceOf(MockFoodCommerceAdapter);
   });
 
-  it('selects the Swiggy skeleton only through its feature flag', () => {
+  it('selects Swiggy only through its explicit provider setting', () => {
     const adapter = createFoodCommerceAdapter({
       THUNA_FOOD_ADAPTER: 'swiggy-mcp',
       THUNA_ENABLE_REAL_SWIGGY_ORDER: 'false',
@@ -139,45 +139,16 @@ describe('MockFoodCommerceAdapter', () => {
 });
 
 describe('SwiggyFoodMcpAdapter', () => {
-  it('keeps real execution disabled by default', async () => {
-    const adapter = new SwiggyFoodMcpAdapter();
-    const result = await adapter.execute({
-      confirmation: {
-        token: 'synthetic-confirmation',
-        cartId: 'synthetic-cart',
-        cartRevision: 'synthetic-revision',
-        confirmedTotalRupees: 125,
-        paymentMethod: 'COD',
-        readbackText: 'Total: Rs 125.',
-        expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      },
-      explicitUserIntent: true,
-      realOrderEnabled: true,
+  it('is a non-simulated adapter with placement disabled by default', () => {
+    const adapter = createFoodCommerceAdapter({
+      THUNA_FOOD_ADAPTER: 'swiggy',
+      THUNA_ENABLE_REAL_SWIGGY_ORDER: 'false',
     });
-    expect(result).toMatchObject({
-      status: 'REJECTED',
-      error: { code: 'REAL_ORDER_DISABLED' },
-    });
-  });
-
-  it('still cannot place an order when the flag is true because it is a skeleton', async () => {
-    const adapter = new SwiggyFoodMcpAdapter(true);
-    const result = await adapter.execute({
-      confirmation: {
-        token: 'synthetic-confirmation',
-        cartId: 'synthetic-cart',
-        cartRevision: 'synthetic-revision',
-        confirmedTotalRupees: 125,
-        paymentMethod: 'COD',
-        readbackText: 'Total: Rs 125.',
-        expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      },
-      explicitUserIntent: true,
-      realOrderEnabled: true,
-    });
-    expect(result).toMatchObject({
-      status: 'REJECTED',
-      error: { code: 'SWIGGY_ADAPTER_NOT_IMPLEMENTED' },
+    expect(adapter).toBeInstanceOf(SwiggyFoodMcpAdapter);
+    expect(adapter.capabilities).toMatchObject({
+      providerId: 'swiggy',
+      isSimulated: false,
+      supportsLiveOrderPlacement: false,
     });
   });
 });

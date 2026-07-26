@@ -22,6 +22,8 @@ export interface FoodCartSnapshot {
   revision: string;
   fetchedAt: string;
   source: 'simulated' | 'provider';
+  providerVerified?: boolean;
+  placementDisabled?: boolean;
 }
 
 export interface PrepareFoodCartInput {
@@ -33,6 +35,39 @@ export interface PrepareFoodCartInput {
     includes?: string[];
     excludes?: string[];
   };
+  addressId?: string;
+  restaurantId?: string;
+  providerCartItems?: Record<string, unknown>[];
+}
+
+export interface FoodAddress {
+  id: string;
+  label: string;
+  displayText: string;
+}
+
+export interface FoodRestaurant {
+  id: string;
+  name: string;
+  available: boolean;
+  rating?: number;
+  deliveryMinutes?: number;
+}
+
+export interface FoodMenuItem {
+  id: string;
+  name: string;
+  priceRupees: number;
+  available: boolean;
+  restaurantId?: string;
+  hasVariants?: boolean;
+  hasAddons?: boolean;
+}
+
+export interface FoodProviderOrder {
+  id: string;
+  status?: string;
+  totalRupees?: number;
 }
 
 export type FoodAdapterErrorCode =
@@ -42,6 +77,11 @@ export type FoodAdapterErrorCode =
   | 'EXPLICIT_CONFIRMATION_REQUIRED'
   | 'CONFIRMATION_EXPIRED'
   | 'REAL_ORDER_DISABLED'
+  | 'AUTH_REQUIRED'
+  | 'PROVIDER_UNAVAILABLE'
+  | 'MALFORMED_PROVIDER_RESPONSE'
+  | 'INVALID_PROVIDER_SELECTION'
+  | 'ORDER_STATUS_UNKNOWN'
   | 'SWIGGY_ACCESS_NOT_CONFIGURED'
   | 'SWIGGY_ADAPTER_NOT_IMPLEMENTED';
 
@@ -141,4 +181,25 @@ export interface FoodCommerceAdapter {
   reconcile(
     metadata: FoodReconciliationMetadata,
   ): Promise<FoodReconciliationResult>;
+
+  getAddresses?(): Promise<FoodAdapterResult<FoodAddress[]>>;
+  searchRestaurants?(
+    addressId: string,
+    query: string,
+  ): Promise<FoodAdapterResult<FoodRestaurant[]>>;
+  searchMenu?(
+    addressId: string,
+    query: string,
+    restaurantId?: string,
+  ): Promise<FoodAdapterResult<FoodMenuItem[]>>;
+  getRestaurantMenu?(
+    addressId: string,
+    restaurantId: string,
+  ): Promise<FoodAdapterResult<FoodMenuItem[]>>;
+  listRecentOrders?(
+    addressId: string,
+  ): Promise<FoodAdapterResult<FoodProviderOrder[]>>;
+  trackOrder?(
+    orderId: string,
+  ): Promise<FoodAdapterResult<FoodProviderOrder>>;
 }
