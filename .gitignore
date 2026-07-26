@@ -1,0 +1,42 @@
+# ---- secrets (NEVER commit) ----
+.env
+.env.*
+!.env.example
+*.key
+.key
+.sarvam_key
+**/.sarvam_key
+secrets.*
+config/secrets.*
+AGENTS.md
+
+# ---- python ----
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+
+# ---- node ----
+node_modules/
+.next/
+dist/
+build/
+.npm/
+.pnp.*
+
+# ---- misc ----
+.DS_Store
+*.log
+tmp/
+.cache/
+
+# build artifacts
+.work/
+public/output/*
+!public/output/.gitkeep
+samples/*.mp4
+samples/*.wav
