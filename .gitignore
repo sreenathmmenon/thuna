@@ -40,3 +40,8 @@ public/output/*
 !public/output/.gitkeep
 samples/*.mp4
 samples/*.wav
+
+# runtime data (persisted via volume in production — see lib/storage.ts)
+data/*.json
+!data/.gitkeep
+tsconfig.tsbuildinfo
