@@ -1,0 +1,18 @@
+# ---- NEVER COMMIT OAUTH MATERIAL ----
+.env
+.env.*
+!.env.example
+.tokens.json
+*.token
+*.tokens
+.pkce
+.code_verifier
+
+# ---- node ----
+node_modules/
+dist/
+*.tsbuildinfo
+
+# ---- probe output (may contain real addresses / order data) ----
+out/
+*.probe.json

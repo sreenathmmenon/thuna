@@ -1,0 +1,28 @@
+{
+  "name": "thuna-swiggy-mcp-experiment",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone, read-only proof-of-connection probe for Swiggy MCP. Imports no Thuna production code.",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "auth": "node --experimental-strip-types src/auth-cli.ts",
+    "probe": "node --experimental-strip-types src/probe.ts",
+    "probe:discover": "node --experimental-strip-types src/probe.ts --only=discover",
+    "probe:addresses": "node --experimental-strip-types src/probe.ts --only=addresses",
+    "probe:restaurants": "node --experimental-strip-types src/probe.ts --only=restaurants",
+    "probe:menu": "node --experimental-strip-types src/probe.ts --only=menu",
+    "probe:cart": "node --experimental-strip-types src/probe.ts --only=cart"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=22.6.0"
+  }
+}

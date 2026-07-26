@@ -1,18 +1,22 @@
 import type { SessionCtx, ParsedCommand } from '../types';
+import {
+  SIMULATED_DELIVERY_FEE_RUPEES,
+  simulatedFoodItemPriceRupees,
+} from '../adapters/simulated-food-catalog';
 import { defineSkill, type GovernedTaskSkill } from './contract';
 
 // A food order: item name + included customisations + explicitly-excluded customisations.
 export interface FoodOrder { name: string; includes: string[]; excludes: string[]; }
 
-const PRICES: Record<string, number> = { 'masala dosa': 120, 'plain dosa': 100, 'paper dosa': 90, 'set dosa': 110 };
-const DELIVERY_FEE = 25;
 const KNOWN_CUST = ['chutney', 'sambar', 'chilli'];
 
 function orderOf(ctx: SessionCtx): FoodOrder {
   const it = ctx.fields.items as FoodOrder | undefined;
   return it ? { name: it.name || '', includes: [...(it.includes || [])], excludes: [...(it.excludes || [])] } : { name: '', includes: [], excludes: [] };
 }
-function priceOf(name: string): number { return PRICES[name.toLowerCase()] ?? 100; }
+function priceOf(name: string): number {
+  return simulatedFoodItemPriceRupees(name);
+}
 
 export const ORDER_FOOD: GovernedTaskSkill = defineSkill({
   id: 'ORDER_FOOD',
@@ -86,7 +90,7 @@ export const ORDER_FOOD: GovernedTaskSkill = defineSkill({
     answerContextual(question, ctx, screen) {
       const q = question.toLowerCase();
       if (/(total|higher|expensive|cost|charge|fee|why.*more|why.*higher)/.test(q)) {
-        const fee = screen.deliveryFee ?? DELIVERY_FEE;
+        const fee = screen.deliveryFee ?? SIMULATED_DELIVERY_FEE_RUPEES;
         if (fee > 0) return `The food price is the same, but today there is a Rs ${fee} delivery charge because the restaurant is farther away. We can go back and look for a closer restaurant.`;
       }
       return null;
@@ -98,7 +102,7 @@ export const ORDER_FOOD: GovernedTaskSkill = defineSkill({
       if (o.excludes.length) s += `, no ${o.excludes.join(', no ')}`;
       s += ` from ${ctx.fields.restaurant || 'the restaurant'}`;
       s += `, to ${ctx.fields.address || 'your address'}`;
-      const total = priceOf(o.name) + DELIVERY_FEE;
+      const total = priceOf(o.name) + SIMULATED_DELIVERY_FEE_RUPEES;
       s += `. Total: Rs ${total}`;
       return s;
     },
@@ -109,8 +113,8 @@ export const ORDER_FOOD: GovernedTaskSkill = defineSkill({
         skillId: ORDER_FOOD.id,
         step: step?.id,
         fields: { ...ctx.fields },
-        deliveryFee: DELIVERY_FEE,
-        total: priceOf(o.name) + DELIVERY_FEE,
+        deliveryFee: SIMULATED_DELIVERY_FEE_RUPEES,
+        total: priceOf(o.name) + SIMULATED_DELIVERY_FEE_RUPEES,
         status: ctx.awaitingConfirmation ? 'awaiting_confirmation' : 'idle',
       };
     },
