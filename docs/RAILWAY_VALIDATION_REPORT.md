@@ -3,7 +3,7 @@
 ## Locally verified
 - `npm ci` — exit 0 (deterministic install).
 - `npx tsc --noEmit` — exit 0 (typecheck clean).
-- `npm test` (vitest) — **115/115 passing** (10 files; ≥107 as required).
+- `npm test` (vitest) — **126/126 passing** (13 files).
 - `npm run build` — exit 0 (`/api/health` route present).
 - Local prod server on `PORT=3100`: `GET /api/health` → 200 `{"status":"ok","service":"thuna","release":"local",...}`; `/` → 200.
 - Secret scan: no `SARVAM_API_KEY` values in tracked files; no real `.env` tracked (only `.env.example` placeholders); no `NEXT_PUBLIC_*` secrets; token-pattern matches were documentation/variable-name false positives.
@@ -16,14 +16,23 @@
 - Volume `thuna-volume` mounted at `/app/data` (Ready).
 - Variables set (non-secret + `SARVAM_API_KEY`, value not printed).
 - Healthcheck path: `/api/health` (configured in `railway.json`).
-- (Live Railway `/api/health` 200 to be confirmed once deployment reports Active — see blockers.)
+- Live Railway `/` and `/api/health` return HTTP 200.
+- Public domain: `https://thuna-production.up.railway.app/`.
+- The deployed runtime includes `/api/integrations/swiggy` and its OAuth callback.
 
 ## Live Sarvam
 - `SARVAM_API_KEY` is set on the Railway service (sourced from local `~/.env`).
-- A full live Saaras → Sarvam → Bulbul voice path requires the real-time voice loop, which is **not yet merged** into this main repository (Claude mobile UI + Codex Swiggy work are separate). The `/api/stt`, `/api/interpret`, `/api/tts` routes exist but the integrated live loop will be exercised after the merge + redeploy.
+- The mobile UI and `/api/stt`, `/api/session`, and `/api/tts` voice loop are
+  merged. A prerecorded audio fixture passed through the real Saaras endpoint,
+  real Sarvam interpretation, and Bulbul response path.
+- The last physical-browser-microphone rehearsal was not reliable. Browser
+  codec/input/permission behavior remains a demo risk and must be rehearsed on
+  the recording device; prerecorded and typed fallbacks remain available.
 
 ## Simulated vs real providers
 - `THUNA_FOOD_ADAPTER=mock` → simulated food provider.
+- `THUNA_FOOD_ADAPTER=swiggy` → real OAuth, saved-address, discovery, menu, and
+  cart preparation when that environment has an authenticated Swiggy session.
 - `THUNA_ENABLE_REAL_SWIGGY_ORDER=false` → **real Swiggy ordering disabled**. No real order is placed.
 - Simulated actions remain clearly labelled ("SIMULATED … no real order was placed").
 
@@ -37,4 +46,4 @@
 - Post-deploy persistence verification (write → reload → survives restart) to be run after the merge redeploy.
 
 ## Mobile
-- Mobile-first elder UI (`components/elder/*`) is being finalized by Claude in a separate workstream and is **not yet merged** here. Post-merge redeploy required (see RAILWAY_POST_MERGE_CHECKLIST.md).
+- Mobile-first elder UI (`components/elder/*`) is merged and deployed.

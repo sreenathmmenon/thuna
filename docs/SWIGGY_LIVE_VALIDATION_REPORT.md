@@ -45,7 +45,7 @@ this report does not claim a successful automated fake-microphone run.
 | Authoritative real cart read-back | Passed through two `get_food_cart` reads |
 | Locally mocked provider tests | Passed |
 | Order placement | Disabled; not attempted |
-| Production deployment | Not in scope; localhost only |
+| Production deployment | Runtime deployed on Railway; Railway OAuth session not live-verified |
 
 ## Redacted live evidence
 

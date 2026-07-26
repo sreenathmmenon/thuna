@@ -2,12 +2,13 @@
 
 | Area | Status | Real or simulated | Safety boundary |
 |---|---|---|---|
-| Browser microphone | Complete | Real browser recording | User starts and stops capture |
+| Browser microphone | Implemented; browser-dependent | Real browser recording | User starts and stops capture; prerecorded/typed fallback remains available |
 | Saaras v3 STT | Complete | Real Sarvam REST API | Audio held only for request processing |
 | Structured interpretation | Complete | Real Sarvam chat with deterministic fallback | Zod validation; one retry; no state mutation |
 | Deterministic task engine | Complete | Real application logic | Session store is the only state committer |
 | Bulbul v3 speech | Complete | Real Sarvam REST API | Normal/slow pace and recoverable fallback |
-| Order food | Complete | Simulated external action | Fresh explicit confirmation after correction |
+| Order food, default mode | Complete | Simulated provider integration | Fresh explicit confirmation after correction |
+| Swiggy discovery and cart | Live-verified on localhost | Real OAuth, address, restaurant, menu, and cart MCP calls | Server-only tokens; authoritative cart; placement disabled by default |
 | Send payment | Complete | Simulated external action | Recipient mismatch block; no credentials |
 | Phone help | Complete | Simulated guidance | One instruction at a time; no phone control claim |
 | Track order | Complete | Simulated status | Never invents a delivery promise |
@@ -21,7 +22,9 @@
 | Trusted family | Complete | Real consent store; simulated notification by default | Explicit consent and request required |
 | Telegram | Optional | Real only with existing credentials | Never required for demo |
 | Exotel/Twilio | Interface only | Not connected | Optional; no committed credentials |
-| Food/payment providers | Not connected by design | Simulated | No Swiggy, UPI, or banking actions |
+| Swiggy order placement | Disabled by default | No order placed in validation or automated tests | Feature flag plus a second deliberate confirmation |
+| Payment provider | Not connected | Simulated provider integration | No UPI or banking action |
+| Telephony | Interface-only | No outbound call | Requires a future provider and credentials |
 
 ## Sarvam APIs used
 

@@ -2,14 +2,17 @@
 
 ## Current product release
 
-Thuna continues to use its existing simulated `ORDER_FOOD` flow. Restoring the previous dosa order, removing chutney, explaining the Rs 25 delivery fee, correcting the item, requiring explicit confirmation, and returning `SIMULATED ORDER SUCCESS` are unchanged.
+The provider-neutral `FoodCommerceAdapter` preserves the governed deterministic
+food skill:
 
-The production runtime now has an additive provider-neutral `FoodCommerceAdapter` boundary:
-
-- `MockFoodCommerceAdapter` is the default and shares the current simulated catalog and fee calculation.
-- `SwiggyFoodMcpAdapter` is a transport-free, fail-closed skeleton.
+- `MockFoodCommerceAdapter` remains the safe default and preserves the simulated
+  `ORDER_FOOD` behavior.
+- `SwiggyFoodMcpAdapter` is implemented with the official Model Context Protocol
+  TypeScript SDK and Streamable HTTP transport.
 - `THUNA_FOOD_ADAPTER=mock` is the default.
-- `THUNA_ENABLE_REAL_SWIGGY_ORDER=false` is the default.
+- `THUNA_FOOD_ADAPTER=swiggy` enables real OAuth, saved addresses, restaurant
+  and menu discovery, cart mutation, and authoritative cart read-back.
+- `THUNA_ENABLE_REAL_SWIGGY_ORDER=false` remains the default.
 
 ## Safety properties
 
@@ -19,8 +22,10 @@ The production runtime now has an additive provider-neutral `FoodCommerceAdapter
 - Execution has `PLACED`, `REJECTED`, and `UNKNOWN` outcomes.
 - An `UNKNOWN` outcome must carry reconciliation metadata so callers cannot blindly retry a non-idempotent write.
 - The mock returns only a clearly labelled simulated result.
-- The Swiggy skeleton contains no network transport, OAuth credential, cart mutation, or live placement implementation.
-- Selecting the Swiggy skeleton does not make live placement available.
+- OAuth uses PKCE, state validation, server-only token storage, refresh where
+  supported, redacted logs, and fail-closed session handling.
+- Real cart mutation is followed by authoritative `get_food_cart` read-back.
+- Selecting Swiggy mode does not enable live placement.
 
 ## Direct MCP and hardcoding boundary
 
@@ -37,14 +42,20 @@ The mock intentionally retains the locked product-demo values, including the Rs 
 
 Experiment code is excluded from the production TypeScript program and production test command. It is validated from its own directory.
 
-## Blockers to live Swiggy access
+## Verified access and remaining blockers
 
-No live Swiggy MCP call or order placement is currently possible because:
+Localhost OAuth completed and real Swiggy responses were received for:
 
-1. Swiggy MCP access is invite-based and this project has no approved application credentials.
-2. Staging credentials are issued during provider review.
-3. Live response payload fields and the `cartItems` schema have not been observed.
-4. Delegated-auth details remain undocumented.
-5. Production authorization and a staged reconciliation test are required before any live non-idempotent write can be implemented.
+- `get_addresses`
+- `search_restaurants`
+- `get_restaurant_menu`
+- `update_food_cart`
+- `get_food_cart`
 
-These are credential, provider-approval, and verified-schema blockers. They are not reasons to weaken the feature flags or copy experimental transport into the production runtime.
+Railway contains the same runtime but requires a separate OAuth session using
+its exact public HTTPS callback. Local tokens are never copied to Railway.
+
+Real order placement remains deliberately unverified and disabled. Production
+use additionally requires provider authorization, per-user encrypted credential
+storage, payment-mode review, reconciliation testing for ambiguous writes, and
+operational approval. These are not reasons to weaken the safety flag.
