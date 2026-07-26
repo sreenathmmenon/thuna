@@ -6,6 +6,7 @@ import { quickCheck } from './router';
 import { routeByText, recoveryType, isConfirmation, isContextualQuestion } from './command-parser';
 import { getSkill } from './skills/registry';
 import { stepPrompt, readback, answerContextual, buildScreen, simulateReceipt } from './guidance';
+import { allSkillIds } from './skills/registry';
 
 const now = () => new Date().toISOString();
 const ev = (type: string, detail: string): EngineEvent => ({ type, ts: now(), detail });
@@ -21,10 +22,109 @@ function advanceOrConfirm(skill: TaskSkill, ctx: SessionCtx): SessionCtx {
   const missing = skill.requiredFields.filter(f => ctx.fields[f] == null);
   if (missing.length === 0) {
     const rbIndex = skill.steps.findIndex(s => s.confirmBefore);
-    return { ...ctx, stepIndex: rbIndex >= 0 ? rbIndex : ctx.stepIndex, awaitingConfirmation: true };
+    return {
+      ...ctx,
+      stepIndex: rbIndex >= 0 ? rbIndex : ctx.stepIndex,
+      awaitingConfirmation: rbIndex >= 0,
+    };
   }
   const stepForMissing = skill.steps.findIndex(s => s.field && s.field === missing[0]);
   return { ...ctx, stepIndex: stepForMissing >= 0 ? stepForMissing : ctx.stepIndex, awaitingConfirmation: false };
+}
+
+interface GovernedCompletion {
+  simulated: boolean;
+  label: string;
+  summary: string;
+  disclaimer: string;
+}
+
+type GovernedSkill = TaskSkill & {
+  metadata?: {
+    kind?: string;
+    requiresExplicitConfirmation?: boolean;
+  };
+  complete?: (ctx: SessionCtx) => GovernedCompletion;
+};
+
+function allRequiredFieldsPresent(skill: TaskSkill, ctx: SessionCtx): boolean {
+  return skill.requiredFields.every((field) => ctx.fields[field] != null);
+}
+
+function confirmationPrompt(skill: TaskSkill, ctx: SessionCtx): string {
+  if (skill.id === 'ORDER_FOOD') {
+    return `${readback(skill, ctx)} Shall I place the order? Say "yes" to confirm.`;
+  }
+  return `${readback(skill, ctx)} Shall I confirm this simulated action? Say "yes" to confirm.`;
+}
+
+function completionFor(skill: TaskSkill, ctx: SessionCtx): GovernedCompletion {
+  const governed = skill as GovernedSkill;
+  if (governed.complete) return governed.complete(ctx);
+  const receipt = simulateReceipt(skill, ctx);
+  return {
+    simulated: true,
+    label: `SIMULATED ${skill.id} SUCCESS`,
+    summary: receipt.summary,
+    disclaimer: 'This is a simulated result; no real external action occurred.',
+  };
+}
+
+function completeSkill(
+  skill: TaskSkill,
+  ctx: SessionCtx,
+  screen: ScreenState,
+  events: EngineEvent[],
+): EngineResult {
+  const completion = completionFor(skill, ctx);
+  const nextScreen = { ...screen, status: 'done' as const };
+  events.push(ev('complete', completion.summary));
+  return ok(
+    {
+      action: 'complete',
+      speak: `${completion.label} — ${completion.summary} (${completion.disclaimer})`,
+      screen: nextScreen,
+    },
+    { ...ctx, awaitingConfirmation: false },
+    nextScreen,
+    events,
+  );
+}
+
+function respondAfterFields(
+  skill: TaskSkill,
+  ctx: SessionCtx,
+  screen: ScreenState,
+  events: EngineEvent[],
+): EngineResult {
+  if (ctx.awaitingConfirmation) {
+    return ok(
+      { action: 'confirm', speak: confirmationPrompt(skill, ctx), screen },
+      ctx,
+      screen,
+      events,
+    );
+  }
+  if (allRequiredFieldsPresent(skill, ctx)) {
+    const governed = skill as GovernedSkill;
+    if (skill.id === 'PHONE_HELP' && ctx.fields.guidanceComplete !== true) {
+      return ok(
+        { action: 'ask', speak: readback(skill, ctx), screen },
+        ctx,
+        screen,
+        events,
+      );
+    }
+    if (governed.metadata?.requiresExplicitConfirmation !== true) {
+      return completeSkill(skill, ctx, screen, events);
+    }
+  }
+  return ok(
+    { action: 'ask', speak: stepPrompt(skill, ctx), screen },
+    ctx,
+    screen,
+    events,
+  );
 }
 
 // The generic, skill-driven engine. Pure: returns a proposed next state; never mutates the store.
@@ -56,10 +156,7 @@ export function handle(utterance: string, state: SessionState): EngineResult {
       events.push(ev('correction', summ));
       ctx = advanceOrConfirm(skill, ctx);
       screen = buildScreen(skill, ctx);
-      response = ctx.awaitingConfirmation
-        ? { action: 'confirm', speak: `${readback(skill, ctx)} Shall I place the order? Say "yes" to confirm.`, screen }
-        : { action: 'ask', speak: stepPrompt(skill, ctx), screen };
-      return ok(response, ctx, screen, events);
+      return respondAfterFields(skill, ctx, screen, events);
     }
 
     // 3. Recovery (bare WAIT / REPEAT_SLOWLY / GO_BACK / STOP — only when no correction was parsed).
@@ -95,16 +192,15 @@ export function handle(utterance: string, state: SessionState): EngineResult {
     // 5. Awaiting confirmation: only a clear confirmation completes; silence/vague never counts.
     if (ctx.awaitingConfirmation) {
       if (isConfirmation(text)) {
-        ctx = { ...ctx, awaitingConfirmation: false };
-        screen = { ...screen, status: 'done' };
-        const receipt = simulateReceipt(skill, ctx);
         events.push(ev('confirmation', 'explicit yes'));
-        events.push(ev('complete', receipt.summary));
-        response = { action: 'complete', speak: `SIMULATED ORDER SUCCESS — ${receipt.summary}. (This is a simulated result — no real order was placed.)`, screen };
-        return ok(response, ctx, screen, events);
+        return completeSkill(skill, ctx, screen, events);
       }
       events.push(ev('confirmation_refused', 'not a clear confirmation'));
-      response = { action: 'confirm', speak: `I need a clear "yes" to confirm. Your order: ${readback(skill, ctx)}. Say "yes" to place it, or tell me what to change.`, screen };
+      response = {
+        action: 'confirm',
+        speak: `I need a clear "yes" to confirm. ${readback(skill, ctx)} Say "yes" to continue, or tell me what to change.`,
+        screen,
+      };
       return ok(response, ctx, screen, events);
     }
 
@@ -115,10 +211,7 @@ export function handle(utterance: string, state: SessionState): EngineResult {
     events.push(ev('step_advance', `→ step ${ctx.stepIndex}`));
     ctx = advanceOrConfirm(skill, ctx);
     screen = buildScreen(skill, ctx);
-    response = ctx.awaitingConfirmation
-      ? { action: 'confirm', speak: `${readback(skill, ctx)} Shall I place the order? Say "yes" to confirm.`, screen }
-      : { action: 'ask', speak: stepPrompt(skill, ctx), screen };
-    return ok(response, ctx, screen, events);
+    return respondAfterFields(skill, ctx, screen, events);
   }
 
   // START PATH — no active skill
@@ -151,8 +244,27 @@ export function handle(utterance: string, state: SessionState): EngineResult {
   }
   ctx = advanceOrConfirm(skill, ctx);
   screen = buildScreen(skill, ctx);
-  response = ctx.awaitingConfirmation
-    ? { action: 'confirm', speak: `${readback(skill, ctx)} Shall I place the order? Say "yes" to confirm.`, screen }
-    : { action: 'ask', speak: stepPrompt(skill, ctx), screen };
-  return ok(response, ctx, screen, events);
+  return respondAfterFields(skill, ctx, screen, events);
+}
+
+/**
+ * Accepts a model-proposed command as advisory context. The deterministic
+ * parser and skill engine still own every transition; the event proves that
+ * the validated ParsedCommand reached the governed engine boundary.
+ */
+export function handleInterpreted(
+  utterance: string,
+  command: ParsedCommand,
+  state: SessionState,
+): EngineResult {
+  const result = handle(utterance, state);
+  const proposedSkill =
+    command.skillId && allSkillIds().includes(command.skillId)
+      ? command.skillId
+      : undefined;
+  const detail = [command.kind, proposedSkill].filter(Boolean).join(':');
+  return {
+    ...result,
+    events: [ev('interpretation_received', detail || command.kind), ...result.events],
+  };
 }

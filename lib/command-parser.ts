@@ -28,9 +28,14 @@ export function recoveryType(text: string): 'wait' | 'repeat_slowly' | 'go_back'
 // Typed-mode keyword routing (no LLM). Maps an utterance to a skill id deterministically.
 export function routeByText(utterance: string): RouteDecision {
   const t = utterance.toLowerCase();
+  if (/(track|where is|status).*(order|delivery|parcel)|\bthuna[\s-]?100[1-4]\b/.test(t)) {
+    return { type: 'task', skillId: 'TRACK_ORDER' };
+  }
   if (/(order|food|dosa|eat|restaurant|swiggy|zomato|meal|hungry|lunch|dinner)/.test(t)) return { type: 'task', skillId: 'ORDER_FOOD' };
   if (/(send|transfer|pay|payment|money|upi|gpay|rupees|rs\.?\s*\d)/.test(t)) return { type: 'task', skillId: 'SEND_PAYMENT' };
   if (/(phone|setting|font|text size|volume|wifi|brightness|letters|bigger|smaller|screen)/.test(t)) return { type: 'task', skillId: 'PHONE_HELP' };
-  if (/(help|what is|explain|meaning)/.test(t)) return { type: 'question' };
+  if (/(what is|explain|meaning|qr code|airplane mode|location permission|payment pending|\bcvv\b)/.test(t)) {
+    return { type: 'task', skillId: 'GENERAL_HELP' };
+  }
   return { type: 'unsupported', reason: 'no skill matched' };
 }

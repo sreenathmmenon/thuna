@@ -2,6 +2,7 @@ import { isConfirmation, isContextualQuestion, recoveryType, routeByText } from 
 import { quickCheck } from '../router';
 import { completeChat } from '../sarvam';
 import { getSkill } from '../skills/registry';
+import { allSkillIds } from '../skills/registry';
 import type { ParsedCommand, SessionCtx } from '../types';
 import { modelCommandSchema } from './schemas';
 
@@ -28,9 +29,11 @@ Return exactly one strict JSON object and no markdown.
 The deterministic application, not you, owns all state changes.
 Never claim that an order, payment, reminder, or other action has completed.
 Never request or reproduce an OTP, PIN, CVV, card number, password, or banking credential.
-Schema:
-{"kind":"start|correction|contextual_question|confirmation|recovery|refuse|unknown","skillId":"optional string","patch":{"optional":"values"},"question":"optional string","recoveryType":"wait|repeat_slowly|go_back|stop","restorePreference":false,"reason":"optional string","confidence":0.0}
-Include only schema keys. Use a patch only to propose fields explicitly corrected by the utterance.`;
+Allowed kind values: start, correction, contextual_question, confirmation, recovery, refuse, unknown.
+Allowed skillId values: ORDER_FOOD, SEND_PAYMENT, PHONE_HELP, TRACK_ORDER, GENERAL_HELP, UNSUPPORTED.
+Schema example for a food start:
+{"kind":"start","skillId":"ORDER_FOOD","restorePreference":true,"confidence":0.95}
+Include only relevant schema keys. Never invent another kind or skillId. Use a patch only to propose fields explicitly corrected by the utterance.`;
 
 function safeContext(value: unknown, key = ''): unknown {
   if (/\b(otp|pin|cvv|password|secret|card.?number|credential)\b/i.test(key)) return '[REDACTED]';
@@ -110,8 +113,20 @@ function promptFor(input: InterpretationContext): string {
 
 function parseModelCommand(raw: string, allowed: ParsedCommand['kind'][]): (ParsedCommand & { confidence: number }) | null {
   try {
-    const result = modelCommandSchema.safeParse(JSON.parse(raw));
+    const trimmed = raw.trim();
+    const start = trimmed.indexOf('{');
+    const end = trimmed.lastIndexOf('}');
+    if (start < 0 || end < start) return null;
+    const candidate = JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>;
+    for (const [key, value] of Object.entries(candidate)) {
+      if (value === null) delete candidate[key];
+    }
+    const result = modelCommandSchema.safeParse(candidate);
     if (!result.success || !allowed.includes(result.data.kind)) return null;
+    if (result.data.skillId && !allSkillIds().includes(result.data.skillId)) return null;
+    if (result.data.kind === 'start' && !result.data.skillId) return null;
+    if (result.data.kind === 'correction' && !result.data.patch) return null;
+    if (result.data.kind === 'recovery' && !result.data.recoveryType) return null;
     return result.data as ParsedCommand & { confidence: number };
   } catch {
     return null;

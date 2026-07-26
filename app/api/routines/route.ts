@@ -37,3 +37,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     return errorResponse(error);
   }
 }
+
+export async function DELETE(): Promise<NextResponse> {
+  routineService.reset();
+  return NextResponse.json({ reset: true });
+}

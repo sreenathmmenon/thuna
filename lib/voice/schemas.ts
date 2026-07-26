@@ -60,3 +60,8 @@ export const ttsRequestSchema = z.object({
   pace: z.enum(['normal', 'slow']).default('normal'),
   fallbackId: z.string().regex(/^[a-z0-9_-]+$/i).optional(),
 }).strict();
+
+export const sessionTurnRequestSchema = z.object({
+  sessionId: z.string().trim().min(1).max(100),
+  transcript: z.string().trim().min(1).max(5000),
+}).strict();

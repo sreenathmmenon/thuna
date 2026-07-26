@@ -1,5 +1,6 @@
 import type { SessionState, SessionCtx, ScreenState, EngineEvent, EngineResult } from './types';
-import { handle } from './engine';
+import { handle, handleInterpreted } from './engine';
+import type { ParsedCommand } from './types';
 
 const store = new Map<string, SessionState>();
 
@@ -27,6 +28,17 @@ export function commit(sessionId: string, result: EngineResult): void {
 export function process(sessionId: string, utterance: string): EngineResult {
   const state = getOrCreate(sessionId);
   const result = handle(utterance, state);
+  commit(sessionId, result);
+  return result;
+}
+
+export function processInterpreted(
+  sessionId: string,
+  utterance: string,
+  command: ParsedCommand,
+): EngineResult {
+  const state = getOrCreate(sessionId);
+  const result = handleInterpreted(utterance, command, state);
   commit(sessionId, result);
   return result;
 }

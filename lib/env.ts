@@ -4,6 +4,5 @@ export const env = {
   voice: process.env.BULBUL_VOICE || 'shubh',
   sourceLang: process.env.SOURCE_LANG || 'en-IN',
   targetLang: process.env.TARGET_LANG || 'hi-IN',
-  sampleClip: process.env.SAMPLE_CLIP || '/Users/sreenath/Downloads/Huberman-video.mp4',
   port: Number(process.env.PORT || 3000),
 };

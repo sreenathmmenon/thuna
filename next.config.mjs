@@ -1,5 +1,3 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // dubbed outputs served from public/output
-};
+const nextConfig = {};
 export default nextConfig;

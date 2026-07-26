@@ -34,6 +34,10 @@ export class RoutineService {
     return this.store.list();
   }
 
+  reset(): void {
+    this.store.reset();
+  }
+
   get(id: string): Routine {
     return this.store.get(id);
   }

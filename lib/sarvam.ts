@@ -88,6 +88,8 @@ export async function completeChat(
     body: JSON.stringify({
       model: DEFAULT_CHAT_MODEL,
       temperature: 0,
+      reasoning_effort: null,
+      max_tokens: 512,
       response_format: { type: 'json_object' },
       messages: [
         { role: 'system', content: systemPrompt },

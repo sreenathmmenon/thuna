@@ -73,7 +73,7 @@ export const ORDER_FOOD: GovernedTaskSkill = defineSkill({
       else if (/(\bdosa\b)/.test(t) && !order.name) { order.name = 'Masala Dosa'; changed = true; }
 
       // customisations: "no chutney" → exclude; "extra sambar" → include
-      const noX = [...t.matchAll(/\bno (\w+)/g)].map(m => m[1]).filter(x => KNOWN_CUST.includes(x));
+      const noX = [...t.matchAll(/\b(?:no|without) (\w+)/g)].map(m => m[1]).filter(x => KNOWN_CUST.includes(x));
       const extraX = [...t.matchAll(/\b(extra|add|with) (\w+)/g)].map(m => m[2]).filter(x => KNOWN_CUST.includes(x));
       for (const x of noX) { order.includes = order.includes.filter(c => c !== x); if (!order.excludes.includes(x)) order.excludes.push(x); changed = true; }
       for (const x of extraX) { if (!order.includes.includes(x)) order.includes.push(x); order.excludes = order.excludes.filter(c => c !== x); changed = true; }

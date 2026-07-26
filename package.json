@@ -1,12 +1,11 @@
 {
-  "name": "sarvam-dub-buildathon",
+  "name": "thuna-companion",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "m1": "node scripts/m1-smoke.mjs",
     "test": "vitest run"
   },
   "dependencies": {

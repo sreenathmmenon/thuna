@@ -32,7 +32,7 @@ const emptyInspector: InspectorSnapshot = {
   safetyDecision: 'No decision yet',
   events: [],
   latencyMs: 0,
-  fallback: 'Typed mock adapter (integration pending)',
+  fallback: 'No fallback used yet',
 };
 
 const quickActions: Array<{ task: TaskKind; icon: string; label: string; hint: string }> = [
@@ -42,6 +42,15 @@ const quickActions: Array<{ task: TaskKind; icon: string; label: string; hint: s
   { task: 'TRACK_ORDER', icon: '⌖', label: 'Track order', hint: 'See the latest update' },
   { task: 'GENERAL_HELP', icon: '?', label: 'Ask a question', hint: 'Simple explanations' },
 ];
+
+const taskDemoPrompts: Record<TaskKind, string> = {
+  ORDER_FOOD: 'Order my usual dosa without chutney',
+  SEND_PAYMENT: 'Send Rs 500 to my daughter Priya Stores',
+  PHONE_HELP: 'Help me increase the text size on my phone',
+  TRACK_ORDER: 'Track order THUNA-1003',
+  GENERAL_HELP: 'What is a QR code?',
+  UNSUPPORTED: 'Book a flight to Mars',
+};
 
 const routineOptions: Array<{ kind: RoutineKind; title: string; copy: string }> = [
   { kind: 'MEDICINE_REMINDER', title: 'Medicine', copy: 'Reminder only' },
@@ -72,7 +81,8 @@ export default function Home() {
   const [timerStarted, setTimerStarted] = useState(false);
   const [snoozed, setSnoozed] = useState(false);
   const [selectedRoutine, setSelectedRoutine] = useState<RoutineKind>('MEDICINE_REMINDER');
-  const [familyConsent, setFamilyConsent] = useState(true);
+  const [routineId, setRoutineId] = useState<string | null>(null);
+  const [familyConsent, setFamilyConsent] = useState(false);
   const [language, setLanguage] = useState<'English' | 'Malayalam'>('Malayalam');
   const [pace, setPace] = useState<'Normal' | 'Slow'>('Slow');
 
@@ -81,12 +91,19 @@ export default function Home() {
       setSnapshot(value);
       setLanguage(value.language);
       setPace(value.pace);
+      setFamilyConsent(value.contacts.find((contact) => contact.id === 'sree')?.canNotify ?? false);
     });
   }, []);
 
   useEffect(() => {
     if (!timerStarted || (routineStatus !== 'SCHEDULED' && routineStatus !== 'SNOOZED')) return;
     if (countdown <= 0) {
+      void clientApi.triggerDueRoutines().catch(() => {
+        setInspector((current) => ({
+          ...current,
+          fallback: `${current.fallback} → routine API unavailable; in-app check-in preserved`,
+        }));
+      });
       setRoutineStatus('ACTIVE');
       setGuidance(snoozed
         ? 'Hello again, Appa. This is your second medicine check-in.'
@@ -128,6 +145,11 @@ export default function Home() {
         safetyDecision: task === 'UNSUPPORTED' ? 'Paused — human help offered' : 'Allowed',
         events: [...current.events, `open_${task.toLowerCase()}`],
       }));
+      void clientApi.interpretDemoText(taskDemoPrompts[task]).then((turn) => {
+        setTranscript(turn.transcript);
+        setGuidance(turn.guidance);
+        setInspector(turn.inspector);
+      });
     }
   };
 
@@ -140,9 +162,7 @@ export default function Home() {
     }));
   };
 
-  const runVoiceTurn = async () => {
-    setVoicePhase('understanding');
-    const turn = await clientApi.interpretDemoText(typedText);
+  const applyVoiceTurn = (turn: Awaited<ReturnType<typeof clientApi.interpretDemoText>>) => {
     setTranscript(turn.transcript);
     setGuidance(turn.guidance);
     setInspector(turn.inspector);
@@ -151,9 +171,22 @@ export default function Home() {
     window.setTimeout(() => setVoicePhase('idle'), 900);
   };
 
+  const runVoiceTurn = async () => {
+    setVoicePhase('understanding');
+    const turn = await clientApi.interpretDemoText(typedText);
+    applyVoiceTurn(turn);
+  };
+
   const handleVoicePress = async () => {
     if (voicePhase === 'listening') {
-      await runVoiceTurn();
+      setVoicePhase('understanding');
+      setMicNote('Sending this recording securely to Saaras. The audio is not retained.');
+      try {
+        applyVoiceTurn(await clientApi.finishMicrophoneTurn());
+      } catch {
+        setVoicePhase('error');
+        setMicNote('Voice services are unavailable. Use the typed Demo Mode below to continue safely.');
+      }
       return;
     }
     setVoicePhase('requesting_permission');
@@ -165,6 +198,10 @@ export default function Home() {
   };
 
   const completeRoutine = () => {
+    if (routineId) {
+      void clientApi.updateRoutine(routineId, 'COMPLETE', { response: 'Yes' })
+        .catch(() => updateGuidance('The in-app completion is saved for this demo; the routine API needs a retry.', 'routine_api_fallback'));
+    }
     setRoutineStatus('COMPLETED');
     setTimerStarted(false);
     updateGuidance('Done. I have marked this reminder complete.', 'routine_complete');
@@ -185,10 +222,24 @@ export default function Home() {
     setSnoozed(true);
     setRoutineStatus('SNOOZED');
     setCountdown(5);
+    if (routineId) {
+      void clientApi.updateRoutine(routineId, 'SNOOZE', { minutes: 5 })
+        .catch(() => updateGuidance('The in-app snooze is active; the routine API needs a retry.', 'routine_api_fallback'));
+    }
     updateGuidance('All right. I will remind you once more in a few seconds.', 'routine_snoozed');
   };
 
   const resolveRoutine = (status: RoutineStatus, event: string, message: string) => {
+    if (routineId) {
+      const action = status === 'MISSED' ? 'NO_RESPONSE' : status === 'CANCELLED' ? 'CANCEL' : null;
+      if (action) {
+        void clientApi.updateRoutine(
+          routineId,
+          action,
+          action === 'NO_RESPONSE' ? { retryAfterMinutes: 1 } : {},
+        ).catch(() => updateGuidance('The in-app state is preserved; the routine API needs a retry.', 'routine_api_fallback'));
+      }
+    }
     setRoutineStatus(status);
     setTimerStarted(false);
     updateGuidance(message, event);
@@ -211,6 +262,7 @@ export default function Home() {
     setCountdown(10);
     setSnoozed(false);
     setTimerStarted(true);
+    setRoutineId(null);
     setGuidance('Your 10-second medicine reminder is set. I will check in here.');
     setInspector({
       ...emptyInspector,
@@ -222,6 +274,12 @@ export default function Home() {
       safetyDecision: 'Reminder only — no dosage advice',
       events: ['routine_created', 'routine_scheduled'],
     });
+    void clientApi.createMedicineReminder(10)
+      .then((id) => setRoutineId(id))
+      .catch(() => setInspector((current) => ({
+        ...current,
+        fallback: 'Routine API unavailable → in-app demo scheduler',
+      })));
   };
 
   const requestFamily = () => {
@@ -230,6 +288,8 @@ export default function Home() {
       setArea('family');
       return;
     }
+    void clientApi.requestFamilyHelp(routineId ?? undefined)
+      .catch(() => updateGuidance('I kept the request in this demo, but no family notification was sent. Please retry.', 'family_api_fallback'));
     resolveRoutine('ESCALATED', 'family_help_requested', 'You asked for Sree. Your consent is on, so the demo notification may be sent.');
   };
 
@@ -249,7 +309,8 @@ export default function Home() {
     setCountdown(10);
     setTimerStarted(false);
     setSnoozed(false);
-    setFamilyConsent(true);
+    setRoutineId(null);
+    setFamilyConsent(fresh.contacts.find((contact) => contact.id === 'sree')?.canNotify ?? false);
     setLanguage(fresh.language);
     setPace(fresh.pace);
   };
@@ -462,8 +523,13 @@ export default function Home() {
                 <div><h2>Sree</h2><p>Family · Trusted contact</p></div>
                 <label className="switch">
                   <input type="checkbox" checked={familyConsent} onChange={(event) => {
-                    setFamilyConsent(event.target.checked);
-                    updateGuidance(event.target.checked ? 'You gave permission for requested family notifications.' : 'Family notifications are now off.', 'family_consent_changed');
+                    const enabled = event.target.checked;
+                    setFamilyConsent(enabled);
+                    void clientApi.setFamilyConsent(enabled).catch(() => {
+                      setFamilyConsent(!enabled);
+                      updateGuidance('I could not save that permission change. Your previous choice remains active.', 'family_consent_api_fallback');
+                    });
+                    updateGuidance(enabled ? 'You gave permission for requested family notifications.' : 'Family notifications are now off.', 'family_consent_changed');
                   }} />
                   <span aria-hidden="true" />
                   <strong>{familyConsent ? 'Permission on' : 'Permission off'}</strong>
@@ -492,7 +558,15 @@ export default function Home() {
                   <p>Choose the language for guidance and spoken responses.</p>
                   <div className="segmented">
                     {(['Malayalam', 'English'] as const).map((value) => (
-                      <button className={language === value ? 'is-selected' : ''} type="button" key={value} onClick={() => setLanguage(value)}>
+                      <button
+                        className={language === value ? 'is-selected' : ''}
+                        type="button"
+                        key={value}
+                        onClick={() => {
+                          setLanguage(value);
+                          void clientApi.updatePreferences(value, pace);
+                        }}
+                      >
                         {value === 'Malayalam' ? 'മലയാളം' : 'English'}
                       </button>
                     ))}
@@ -503,7 +577,15 @@ export default function Home() {
                   <p>Slow pace leaves more time between instructions.</p>
                   <div className="segmented">
                     {(['Slow', 'Normal'] as const).map((value) => (
-                      <button className={pace === value ? 'is-selected' : ''} type="button" key={value} onClick={() => setPace(value)}>{value}</button>
+                      <button
+                        className={pace === value ? 'is-selected' : ''}
+                        type="button"
+                        key={value}
+                        onClick={() => {
+                          setPace(value);
+                          void clientApi.updatePreferences(language, value);
+                        }}
+                      >{value}</button>
                     ))}
                   </div>
                 </fieldset>
