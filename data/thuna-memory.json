@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "profile": {
+    "id": "elder-appa",
+    "name": "Appa",
+    "preferredLanguage": "Malayalam",
+    "preferredPace": "slow",
+    "preferredAddress": "Home",
+    "previousFoodOrder": {
+      "item": "Masala Dosa",
+      "restaurant": "Udupi Cafe",
+      "address": "Home",
+      "customisations": []
+    },
+    "frequentPaymentRecipients": [
+      {
+        "id": "priya-menon",
+        "name": "Priya Menon",
+        "kind": "person"
+      },
+      {
+        "id": "priya-stores",
+        "name": "Priya Stores",
+        "kind": "merchant"
+      },
+      {
+        "id": "priya-nair",
+        "name": "Priya Nair",
+        "kind": "person"
+      }
+    ],
+    "updatedAt": "2026-07-26T00:00:00.000Z"
+  },
+  "trustedFamilyContacts": [
+    {
+      "id": "sree",
+      "name": "Sree",
+      "relation": "family",
+      "notificationConsent": false,
+      "consentUpdatedAt": null,
+      "createdAt": "2026-07-26T00:00:00.000Z",
+      "updatedAt": "2026-07-26T00:00:00.000Z"
+    }
+  ],
+  "history": {
+    "tasks": [],
+    "routines": [],
+    "corrections": [],
+    "handoffs": []
+  },
+  "consentAudit": []
+}
