@@ -24,6 +24,10 @@ import { SafetyWarning, type RiskKind } from '../components/elder/SafetyWarning'
 import { CompletionReceipt, type ReceiptLine } from '../components/elder/CompletionReceipt';
 import { ErrorRecovery, type RecoverableError } from '../components/elder/ErrorRecovery';
 import {
+  SwiggyFoodOrderView,
+  type SwiggyProviderStatus,
+} from '../components/SwiggyFoodOrderView';
+import {
   CheckInScreen,
   type RoutineKindUi,
   type RoutineStateUi,
@@ -43,7 +47,12 @@ import {
   type PendingLoopUi,
 } from '../components/elder/ContinuityScreens';
 
-import { clientApi, type HomeSnapshot, type RoutineSummary } from '../lib/client-api';
+import {
+  clientApi,
+  type HomeSnapshot,
+  type RoutineSummary,
+  type VoiceTurn,
+} from '../lib/client-api';
 import type { ContinuitySnapshot, InboxCandidate } from '../lib/continuity/types';
 
 /* ------------------------------------------------------------------ */
@@ -212,6 +221,8 @@ export default function ThunaMobile(): JSX.Element {
   const [typed, setTyped] = useState('');
   const [busy, setBusy] = useState(false);
   const [brief, setBrief] = useState<BriefItemUi[] | null>(null);
+  const [foodProviderStatus, setFoodProviderStatus] =
+    useState<SwiggyProviderStatus | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -226,6 +237,25 @@ export default function ThunaMobile(): JSX.Element {
         /* continuity is additive; the rest of the app works without it */
       }
     })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void fetch('/api/integrations/swiggy', { cache: 'no-store' })
+      .then((response) => response.json() as Promise<SwiggyProviderStatus>)
+      .then((providerStatus) => {
+        if (!alive) return;
+        setFoodProviderStatus(providerStatus);
+        if (providerStatus.mode === 'swiggy') {
+          setOverlay((current) => current.kind === 'confirm' ? { kind: 'none' } : current);
+        }
+      })
+      .catch(() => {
+        if (alive) setFoodProviderStatus(null);
+      });
     return () => {
       alive = false;
     };
@@ -252,6 +282,31 @@ export default function ThunaMobile(): JSX.Element {
     if (nextContinuity.status === 'fulfilled') setContinuity(nextContinuity.value);
   }, []);
 
+  const applyTurn = useCallback((turn: VoiceTurn) => {
+    const providerOwnsConfirmation =
+      turn.task === 'ORDER_FOOD' && foodProviderStatus?.mode === 'swiggy';
+    setTranscript(turn.transcript);
+    setGuidance(
+      providerOwnsConfirmation
+        ? 'Let’s use your connected Swiggy account to find the food and check the real cart.'
+        : turn.guidance,
+    );
+    setTask(asTaskKind(turn.task));
+    const screenStatus = turn.inspector.sessionState;
+    setStatus(screenStatus);
+    const entities = turn.inspector.entities as Record<string, unknown>;
+    setFields(entities);
+    const maybeTotal = entities.total;
+    setTotal(typeof maybeTotal === 'number' ? maybeTotal : undefined);
+    if (screenStatus === 'awaiting_confirmation' && !providerOwnsConfirmation) {
+      setOverlay({ kind: 'confirm' });
+      setVoice('waiting_for_action');
+    } else {
+      setOverlay({ kind: 'none' });
+      setVoice(voiceStateFromStatus(screenStatus, 'speaking'));
+    }
+  }, [foodProviderStatus?.mode]);
+
   const runTurn = useCallback(
     async (text: string) => {
       const risk = riskFromText(text);
@@ -266,21 +321,7 @@ export default function ThunaMobile(): JSX.Element {
       setError(null);
       try {
         const turn = await clientApi.interpretDemoText(text);
-        setTranscript(turn.transcript);
-        setGuidance(turn.guidance);
-        setTask(asTaskKind(turn.task));
-        const screenStatus = turn.inspector.sessionState;
-        setStatus(screenStatus);
-        const entities = turn.inspector.entities as Record<string, unknown>;
-        setFields(entities);
-        const maybeTotal = entities.total;
-        setTotal(typeof maybeTotal === 'number' ? maybeTotal : undefined);
-        if (screenStatus === 'awaiting_confirmation') {
-          setOverlay({ kind: 'confirm' });
-          setVoice('waiting_for_action');
-        } else {
-          setVoice(voiceStateFromStatus(screenStatus, 'speaking'));
-        }
+        applyTurn(turn);
       } catch {
         setError(offline ? 'network_offline' : 'network_interrupted');
         setVoice('network_failure');
@@ -288,7 +329,7 @@ export default function ThunaMobile(): JSX.Element {
         setBusy(false);
       }
     },
-    [offline],
+    [applyTurn, offline],
   );
 
   const onTalk = useCallback(async () => {
@@ -296,8 +337,7 @@ export default function ThunaMobile(): JSX.Element {
       setVoice('understanding');
       try {
         const turn = await clientApi.finishMicrophoneTurn();
-        setTranscript(turn.transcript);
-        await runTurn(turn.transcript);
+        applyTurn(turn);
       } catch {
         setError('stt_failure');
         setVoice('stt_failure');
@@ -313,7 +353,7 @@ export default function ThunaMobile(): JSX.Element {
       setError('mic_denied');
       setVoice('mic_denied');
     }
-  }, [voice, runTurn]);
+  }, [applyTurn, voice]);
 
   /* At most three context items — Home must never crowd. */
   const contextItems = useMemo<HomeContextItem[]>(() => {
@@ -546,13 +586,25 @@ export default function ThunaMobile(): JSX.Element {
 
           {activeTask && task ? (
             <div className="mt-4">
-              <TaskScreen
-                kind={task}
-                title={TASK_TITLES[task]}
-                instruction={guidance}
-                summary={summaryRows(fields, total)}
-                practiceRun={task === 'ORDER_FOOD' || task === 'SEND_PAYMENT'}
-              />
+              {task === 'ORDER_FOOD' && foodProviderStatus?.mode === 'swiggy' ? (
+                <SwiggyFoodOrderView
+                  status={foodProviderStatus}
+                  onBack={() => {
+                    setTask(null);
+                    setStatus('idle');
+                    setVoice('idle');
+                    setArea('home');
+                  }}
+                />
+              ) : (
+                <TaskScreen
+                  kind={task}
+                  title={TASK_TITLES[task]}
+                  instruction={guidance}
+                  summary={summaryRows(fields, total)}
+                  practiceRun={task === 'ORDER_FOOD' || task === 'SEND_PAYMENT'}
+                />
+              )}
             </div>
           ) : null}
 

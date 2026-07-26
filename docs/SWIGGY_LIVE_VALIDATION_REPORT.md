@@ -4,6 +4,36 @@ Status: **live-verified on localhost**
 
 Validation date: 2026-07-26
 
+## Production UI end-to-end validation
+
+The current production repository was run with the real Swiggy adapter and real
+order placement disabled. The elder-facing mobile flow completed:
+
+1. A prerecorded spoken request passed through Thuna's real `/api/stt` route and
+   Saaras returned a transcript.
+2. The transcript passed through the real Sarvam interpreter, which returned
+   `ORDER_FOOD` with `modelInvoked: true` and `demoFallback: false`.
+3. The mobile task screen detected the authenticated Swiggy session.
+4. The UI loaded real saved-address labels, searched restaurants, loaded a menu,
+   and selected an available item.
+5. `update_food_cart` mutated the real cart and `get_food_cart` returned the
+   authoritative cart and total.
+6. The UI required the elder to confirm the exact authoritative cart.
+7. Changing quantity from one to two invalidated that confirmation, mutated the
+   real cart again, and produced a new authoritative total.
+8. A new explicit confirmation was required. The flow then stopped with:
+   **Real Swiggy cart prepared. Order placement is disabled for this test.**
+
+The latest UI run used Pisharody'S Veg Restaurant (Ad), Plain Roast, and an
+authoritative total of Rs 169 after the quantity correction. Address labels and
+all personal data are omitted from this report.
+
+Browser automation could not validate Chrome's fake-microphone capture because
+the synthetic `MediaRecorder` payload was rejected by the STT endpoint. The same
+audio fixture succeeded when posted through the production STT route. Therefore,
+the real Saaras transcription and the real browser Swiggy flow are verified, but
+this report does not claim a successful automated fake-microphone run.
+
 ## Evidence categories
 
 | Category | Current result |

@@ -9,7 +9,7 @@ import type {
   FoodRestaurant,
 } from '../lib/adapters/food-commerce';
 
-interface Status {
+export interface SwiggyProviderStatus {
   mode: 'mock' | 'swiggy';
   state: string;
   connected: boolean;
@@ -18,7 +18,7 @@ interface Status {
 }
 
 interface Props {
-  status: Status;
+  status: SwiggyProviderStatus;
   onBack: () => void;
 }
 
@@ -93,7 +93,7 @@ export function SwiggyFoodOrderView({ status: initialStatus, onBack }: Props) {
           disabled={busy}
           onClick={() => void run(async () => {
             setMessage('Opening Swiggy’s secure connection page…');
-            const result = await providerRequest<{ connectUrl?: string; status?: Status }>({ action: 'CONNECT' });
+            const result = await providerRequest<{ connectUrl?: string; status?: SwiggyProviderStatus }>({ action: 'CONNECT' });
             if (!result.connectUrl) throw new Error('Swiggy did not provide a secure connection page.');
             window.location.assign(result.connectUrl);
           })}
@@ -168,9 +168,9 @@ export function SwiggyFoodOrderView({ status: initialStatus, onBack }: Props) {
               {entry.name}{entry.deliveryMinutes ? ` · about ${entry.deliveryMinutes} min` : ''}
             </button>
           ))}
-          {items.map((entry) => (
+          {items.map((entry, index) => (
             <button
-              key={entry.id}
+              key={`${entry.id}-${index}`}
               className="secondary-button"
               type="button"
               disabled={busy || entry.hasVariants === true || entry.hasAddons === true}
