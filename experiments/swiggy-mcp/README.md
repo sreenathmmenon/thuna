@@ -160,8 +160,8 @@ experiments/swiggy-mcp/
 
 - ✅ `typecheck` — clean
 - ✅ `test` — 30/30 pass
-- ⏳ Live probe — **not yet executed.** Requires Swiggy MCP access, which needs an approved
-  application. See `CLAUDE_INTEGRATION_HANDOFF.md` §4.
+- ⏳ Live probe — run only with approved Swiggy MCP access. See the production
+  status in `../../docs/SWIGGY_LIVE_VALIDATION_REPORT.md`.
 
 The unit tests verify every safety property that does not need a network. The live probe is the
 remaining unknown, and it is blocked on credentials rather than on code.

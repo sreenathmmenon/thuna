@@ -228,5 +228,5 @@ Read every string in the built UI aloud, as if to a parent. Then answer:
 
 ## Related
 
-`GLM_MOBILE_IMPLEMENTATION_PROMPT.md` · `MOBILE_STATE_MAP.md` · `ACCESSIBILITY_SPECIFICATION.md` ·
+`MOBILE_STATE_MAP.md` · `ACCESSIBILITY_SPECIFICATION.md` ·
 `MALAYALAM_CONTENT_GUIDE.md` · `MOBILE_PRODUCT_PRINCIPLES.md`

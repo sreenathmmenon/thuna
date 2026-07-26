@@ -30,7 +30,7 @@ If the demo lands only two, land **1 and 4**. Continuity is the thesis; safety i
 
 ## 2. Setup
 
-Seed state (from `CODEX_MASTER_ORCHESTRATION.md`):
+Seed state:
 
 | Field | Value |
 |---|---|

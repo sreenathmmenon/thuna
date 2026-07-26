@@ -221,9 +221,9 @@ From data & compliance:
 
 ### Direct collisions with Thuna's memory model
 
-Thuna's `CODEX_MASTER_ORCHESTRATION.md` Workstream E stores "Previous food order" and "Preferred
-address" — and `lib/skills/order-food.ts` already restores a `usualOrder` preference. That is the
-product's most-loved feature (the elder says "the usual" and it works).
+Thuna stores a previous food order and preferred address, and
+`lib/skills/order-food.ts` restores a `usualOrder` preference. That is one of the
+product's central capabilities: the elder says "the usual" and it works.
 
 Under DPDP, a Swiggy-sourced address or order **is PII**, and the guidance is to avoid persisting it
 beyond the session. Two things follow:

@@ -258,4 +258,3 @@ until reconciliation returns. Saying "it failed" when it succeeded produces a du
 
 - `COMPONENT_SPECIFICATION.md` · `VOICE_INTERACTION_STATES.md` · `TASK_SCREEN_SYSTEM.md`
 - `SAFETY_AND_CONFIRMATION_SCREENS.md` · `ERROR_AND_RECOVERY_STATES.md`
-- `GLM_MOBILE_IMPLEMENTATION_PROMPT.md`

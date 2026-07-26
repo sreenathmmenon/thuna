@@ -305,9 +305,9 @@ Recorded honestly so Codex does not mistake absence for permission:
 
 ## 11. Bearing on Thuna
 
-Thuna's hard constraints (AGENTS.md, `CODEX_MASTER_ORCHESTRATION.md`) state that food orders are
-**faithful simulations** unless "real credentials and approved APIs are already available," and that
-simulated actions must be visibly labelled `SIMULATED`.
+Thuna's safety constraints require food orders to remain faithful simulations
+unless real credentials and approved APIs are available, and simulated actions
+must be visibly labelled `SIMULATED`.
 
 This research does not change that. Swiggy MCP production access is **invite-based** and requires an
 application plus ≥48 hours green on staging. Until that approval exists, Thuna's `ORDER_FOOD` skill

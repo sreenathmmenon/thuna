@@ -26,8 +26,8 @@
  * TELEPHONY POSTURE
  * ---------------------------------------------------------------------------
  *
- * Per CODEX_MASTER_ORCHESTRATION.md: "Optional telephony adapter; telephony is never
- * required for core operation" and "Telephony credentials must not be committed."
+ * Product rule: telephony is optional, never required for core operation, and
+ * telephony credentials must not be committed.
  * This contract keeps telephony strictly behind the same interface as in-app voice,
  * so the routine engine never learns whether it is talking over a speaker or a phone.
  */

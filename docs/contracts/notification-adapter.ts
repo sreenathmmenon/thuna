@@ -13,7 +13,7 @@
  * This is the most ethically loaded adapter in the package, so the safety rule is
  * encoded in the TYPES rather than left to reviewer discipline.
  *
- * Thuna's invariants (AGENTS.md, CODEX_MASTER_ORCHESTRATION.md):
+ * Thuna's product invariants:
  *   - "Family notification requires explicit elder consent."
  *   - "No implicit surveillance."
  *   - "No emotional or medical inference silently shared with family."

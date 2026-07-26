@@ -2,8 +2,8 @@
 
 > Design document. **Changes no production code.**
 >
-> Per `CODEX_MASTER_ORCHESTRATION.md`: *"Optional telephony adapter; telephony is never required for
-> core operation"* and *"Telephony credentials must not be committed."*
+> Product rule: telephony is optional, never required for core operation, and
+> telephony credentials must not be committed.
 >
 > **Nothing here should be built during the current build.** This exists so the in-app voice layer is
 > shaped correctly today, and so telephony remains an adapter swap rather than a rewrite.

@@ -133,7 +133,7 @@ conversation transcripts retained beyond the session.
 
 ## 9. Routines in scope
 
-From `CODEX_MASTER_ORCHESTRATION.md`:
+The current product supports these routine categories:
 
 | Routine | Purpose | Notes |
 |---|---|---|

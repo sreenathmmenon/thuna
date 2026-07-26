@@ -314,6 +314,5 @@ Phases 1–2 need **no credentials at all**.
 
 ## Related
 
-- `CODEX_COMPANION_INTEGRATION_PROMPT.md` — the prompt to hand Codex
 - `COMPANION_DEMO_SCRIPT.md` — what this enables on stage
-- `CLAUDE_INTEGRATION_HANDOFF.md` — package-level handoff
+- `../CONTINUITY_COMPANION_INTEGRATION_STATUS.md` — current implementation status
