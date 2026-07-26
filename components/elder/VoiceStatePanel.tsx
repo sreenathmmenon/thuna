@@ -22,6 +22,9 @@ interface VoiceStatePanelProps {
   state: VoiceUiState;
   transcript?: string;
   guidance?: string;
+  /** When provided and guidance exists, shows a “Say it again” action. */
+  onReplay?: () => void;
+  replayBusy?: boolean;
 }
 
 /** Short, plain state word shown above the copy. Never engine wording. */
@@ -74,16 +77,32 @@ export function VoiceStatePanel({
   state,
   transcript,
   guidance,
+  onReplay,
+  replayBusy = false,
 }: VoiceStatePanelProps): JSX.Element {
   const copy = resolveCopy(state, guidance);
+  const showReplay = Boolean(onReplay && guidance && guidance.trim().length > 0);
 
   return (
     <section className="voice-panel">
-      <p className="voice-panel__state" aria-live="polite">
-        {STATE_WORDS[state]}
-      </p>
+      {/* One live region covering the state word AND the guidance itself, so
+          screen readers announce what Thuna is actually saying — the guidance
+          is the equal of the audio, never a subtitle to it. */}
+      <div aria-live="polite">
+        <p className="voice-panel__state">{STATE_WORDS[state]}</p>
+        {copy ? <p className="voice-panel__copy">{copy}</p> : null}
+      </div>
 
-      {copy ? <p className="voice-panel__copy">{copy}</p> : null}
+      {showReplay ? (
+        <button
+          type="button"
+          className="replay"
+          onClick={onReplay}
+          disabled={replayBusy}
+        >
+          <span aria-hidden="true">↻</span> Say it again
+        </button>
+      ) : null}
 
       {transcript ? (
         <p className="transcript">

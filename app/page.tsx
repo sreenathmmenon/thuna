@@ -13,7 +13,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { Disclosure } from '../components/elder/Disclosure';
 import { ElderShell, type ElderArea } from '../components/elder/ElderShell';
+import { TextSizeControl, type TextSizeStep } from '../components/elder/TextSizeControl';
 import { HomeScreen, type HomeContextItem } from '../components/elder/HomeScreen';
 import { VoiceStatePanel, type VoiceUiState } from '../components/elder/VoiceStatePanel';
 import { TalkButton, type TalkVisualState } from '../components/elder/TalkButton';
@@ -192,6 +194,56 @@ function greetingFor(name: string): string {
   return `${part}, ${name}`;
 }
 
+/**
+ * A short, gentle vibration for elders who miss the audio cue. Purely
+ * additive — every state change it accompanies is also shown on screen.
+ */
+function buzz(pattern: number | number[]): void {
+  try {
+    if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
+      navigator.vibrate(pattern);
+    }
+  } catch {
+    /* haptics are best-effort */
+  }
+}
+
+const TEXT_SIZE_KEY = 'thuna-text-size';
+
+function loadTextSize(): TextSizeStep {
+  try {
+    const stored = window.localStorage.getItem(TEXT_SIZE_KEY);
+    return stored === 'large' || stored === 'xl' ? stored : 'normal';
+  } catch {
+    return 'normal';
+  }
+}
+
+function applyTextSize(step: TextSizeStep): void {
+  try {
+    if (step === 'normal') {
+      delete document.documentElement.dataset.text;
+      window.localStorage.removeItem(TEXT_SIZE_KEY);
+    } else {
+      document.documentElement.dataset.text = step;
+      window.localStorage.setItem(TEXT_SIZE_KEY, step);
+    }
+  } catch {
+    /* persistence is best-effort; the in-session size still applies */
+  }
+}
+
+/**
+ * First-visit examples for the Talk screen. Elders often don't know what they
+ * may say to a voice product; each chip is a real, working utterance that
+ * routes deterministically (see lib/command-parser routeByText).
+ */
+const STARTER_PHRASES: readonly string[] = [
+  'Order my usual dosa',
+  'Help me make the letters bigger on my phone',
+  'Where is my order?',
+];
+
 /* ------------------------------------------------------------------ */
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
@@ -224,6 +276,27 @@ export default function ThunaMobile(): JSX.Element {
   const [brief, setBrief] = useState<BriefItemUi[] | null>(null);
   const [foodProviderStatus, setFoodProviderStatus] =
     useState<SwiggyProviderStatus | null>(null);
+  const [textSize, setTextSize] = useState<TextSizeStep>('normal');
+  const [replaying, setReplaying] = useState(false);
+  const [moreWaysOpen, setMoreWaysOpen] = useState(false);
+
+  useEffect(() => {
+    setTextSize(loadTextSize());
+  }, []);
+
+  const onTextSize = useCallback((step: TextSizeStep) => {
+    setTextSize(step);
+    applyTextSize(step);
+  }, []);
+
+  const onReplay = useCallback(async () => {
+    setReplaying(true);
+    try {
+      await clientApi.replayGuidance();
+    } finally {
+      setReplaying(false);
+    }
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -302,9 +375,11 @@ export default function ThunaMobile(): JSX.Element {
     if (screenStatus === 'awaiting_confirmation' && !providerOwnsConfirmation) {
       setOverlay({ kind: 'confirm' });
       setVoice('waiting_for_action');
+      buzz([12, 60, 12]); // “your turn” — two gentle taps
     } else {
       setOverlay({ kind: 'none' });
       setVoice(voiceStateFromStatus(screenStatus, 'speaking'));
+      if (screenStatus === 'done') buzz(20);
     }
   }, [foodProviderStatus?.mode]);
 
@@ -350,9 +425,12 @@ export default function ThunaMobile(): JSX.Element {
     const granted = await clientApi.requestMicrophone();
     if (granted === 'granted') {
       setVoice('listening');
+      buzz(15);
     } else {
       setError('mic_denied');
       setVoice('mic_denied');
+      // The elder still needs a way through: surface typing without a hunt.
+      setMoreWaysOpen(true);
     }
   }, [applyTurn, voice]);
 
@@ -506,12 +584,20 @@ export default function ThunaMobile(): JSX.Element {
     routine: RoutineSummary,
     action: 'COMPLETE' | 'SNOOZE' | 'CANCEL',
   ): Promise<void> {
-    await clientApi.updateRoutine(
-      routine.id,
-      action,
-      action === 'COMPLETE' ? { response: 'Yes' } : {},
-    );
-    await refresh();
+    try {
+      await clientApi.updateRoutine(
+        routine.id,
+        action,
+        action === 'COMPLETE'
+          ? { response: 'Yes' }
+          : action === 'SNOOZE'
+            ? { minutes: 10 } // “a little more time”, elder-scaled
+            : {},
+      );
+    } finally {
+      // Whatever happened server-side, the screen must show the true state.
+      await refresh();
+    }
   }
 
   /* Takeovers own the whole screen — no nav, no competing actions. */
@@ -584,6 +670,13 @@ export default function ThunaMobile(): JSX.Element {
               </button>
             </div>
           )}
+
+          <div className="mt-6">
+            <p className="section-label" id="text-size-label">
+              Text size
+            </p>
+            <TextSizeControl value={textSize} onChange={onTextSize} />
+          </div>
         </>
       ) : null}
 
@@ -597,7 +690,13 @@ export default function ThunaMobile(): JSX.Element {
             />
           </div>
 
-          <VoiceStatePanel state={voice} transcript={transcript} guidance={guidance} />
+          <VoiceStatePanel
+            state={voice}
+            transcript={transcript}
+            guidance={guidance}
+            onReplay={() => void onReplay()}
+            replayBusy={replaying || busy}
+          />
 
           {error ? (
             <div className="mt-4">
@@ -610,7 +709,10 @@ export default function ThunaMobile(): JSX.Element {
                 ]}
                 onAction={(id) => {
                   if (id === 'retry') void onTalk();
-                  if (id === 'type') setError(null);
+                  if (id === 'type') {
+                    setError(null);
+                    setMoreWaysOpen(true);
+                  }
                   if (id === 'stop') {
                     setError(null);
                     setVoice('idle');
@@ -618,6 +720,27 @@ export default function ThunaMobile(): JSX.Element {
                   }
                 }}
               />
+            </div>
+          ) : null}
+
+          {/* First-visit help: real, working phrases. Shown only while the
+              session is fresh — never on top of an active task. */}
+          {!activeTask && !transcript && voice !== 'listening' && !error ? (
+            <div className="mt-6">
+              <p className="section-label">Try saying</p>
+              <div className="chips">
+                {STARTER_PHRASES.map((phrase) => (
+                  <button
+                    key={phrase}
+                    type="button"
+                    className="chip"
+                    disabled={busy}
+                    onClick={() => void runTurn(phrase)}
+                  >
+                    {phrase}
+                  </button>
+                ))}
+              </div>
             </div>
           ) : null}
 
@@ -660,25 +783,27 @@ export default function ThunaMobile(): JSX.Element {
             />
           ) : null}
 
-          <div className="mt-6">
-            <button
-              type="button"
-              className="btn btn--quiet"
-              disabled={busy}
-              onClick={() => void onDemoVoice()}
-            >
-              Use demo voice
-            </button>
-            <VoiceUpload onAudio={onUploadedAudio} busy={busy} />
-
+          <Disclosure
+            label="More ways to talk to Thuna"
+            open={moreWaysOpen}
+            onToggle={setMoreWaysOpen}
+          >
             <label className="section-label" htmlFor="typed-input">
-              Or type instead
+              Type instead
             </label>
             <input
               id="typed-input"
               className="field"
               value={typed}
+              enterKeyHint="send"
               onChange={(event) => setTyped(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !busy && typed.trim().length > 0) {
+                  const text = typed.trim();
+                  setTyped('');
+                  void runTurn(text);
+                }
+              }}
               placeholder="Order my usual dosa"
             />
             <div className="mt-4">
@@ -695,7 +820,19 @@ export default function ThunaMobile(): JSX.Element {
                 Send
               </button>
             </div>
-          </div>
+
+            <div className="mt-6">
+              <button
+                type="button"
+                className="btn btn--quiet"
+                disabled={busy}
+                onClick={() => void onDemoVoice()}
+              >
+                Use demo voice
+              </button>
+              <VoiceUpload onAudio={onUploadedAudio} busy={busy} />
+            </div>
+          </Disclosure>
 
           {activeTask ? (
             <RecoveryControls
@@ -719,6 +856,26 @@ export default function ThunaMobile(): JSX.Element {
             {(home?.routines ?? []).length === 0 ? (
               <div className="card">
                 <p className="body-text">Nothing scheduled yet.</p>
+                <p className="caption mt-4">
+                  Try a short practice one — it checks in after ten seconds, and
+                  you can mark it done or ask for more time.
+                </p>
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    className="btn btn--secondary"
+                    disabled={busy}
+                    onClick={() => {
+                      setBusy(true);
+                      void clientApi
+                        .createMedicineReminder()
+                        .then(refresh)
+                        .finally(() => setBusy(false));
+                    }}
+                  >
+                    Set a practice reminder
+                  </button>
+                </div>
               </div>
             ) : (
               <ul className="stack">

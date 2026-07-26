@@ -1,4 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname } from 'node:path';
 import { RoutineError } from './errors';
 import type {
   CreateRoutineInput,
@@ -8,6 +16,28 @@ import type {
   RoutineState,
 } from './types';
 import { safeRoutineCopy } from './safety';
+
+interface RoutineDocument {
+  version: 1;
+  routines: Routine[];
+}
+
+function isRoutineDocument(value: unknown): value is RoutineDocument {
+  if (typeof value !== 'object' || value === null) return false;
+  const document = value as { version?: unknown; routines?: unknown };
+  if (document.version !== 1 || !Array.isArray(document.routines)) return false;
+  return document.routines.every((entry) => {
+    if (typeof entry !== 'object' || entry === null) return false;
+    const routine = entry as Record<string, unknown>;
+    return (
+      typeof routine.id === 'string' &&
+      typeof routine.type === 'string' &&
+      typeof routine.state === 'string' &&
+      typeof routine.scheduledFor === 'string' &&
+      Array.isArray(routine.history)
+    );
+  });
+}
 
 function cloneRoutine(routine: Routine): Routine {
   return {
@@ -19,10 +49,28 @@ function cloneRoutine(routine: Routine): Routine {
 export class RoutineStore {
   private readonly routines = new Map<string, Routine>();
 
+  /**
+   * When filePath is set, every mutation is persisted with the same
+   * atomic temp-write-then-rename pattern the continuity and memory stores
+   * use. A reminder an elder was promised must survive a restart.
+   */
   constructor(
     private readonly now: () => Date = () => new Date(),
     private readonly createId: () => string = randomUUID,
-  ) {}
+    private readonly filePath?: string,
+  ) {
+    if (filePath && existsSync(filePath)) {
+      const parsed: unknown = JSON.parse(readFileSync(filePath, 'utf8'));
+      if (!isRoutineDocument(parsed)) {
+        throw new Error('Stored routine data does not match the current contract.');
+      }
+      for (const routine of parsed.routines) {
+        this.routines.set(routine.id, cloneRoutine(routine));
+      }
+    } else if (filePath) {
+      this.persist();
+    }
+  }
 
   create(input: CreateRoutineInput): Routine {
     const scheduledFor = new Date(input.scheduledFor);
@@ -47,6 +95,7 @@ export class RoutineStore {
     };
     this.append(routine, 'CREATED', `Routine scheduled for ${routine.scheduledFor}.`);
     this.routines.set(id, routine);
+    this.persist();
     return cloneRoutine(routine);
   }
 
@@ -67,6 +116,7 @@ export class RoutineStore {
     if (!routine) throw new RoutineError('NOT_FOUND', 'Routine not found.', 404);
     mutator(routine);
     routine.updatedAt = this.now().toISOString();
+    this.persist();
     return cloneRoutine(routine);
   }
 
@@ -96,6 +146,19 @@ export class RoutineStore {
 
   reset(): void {
     this.routines.clear();
+    this.persist();
+  }
+
+  private persist(): void {
+    if (!this.filePath) return;
+    const document: RoutineDocument = { version: 1, routines: this.list() };
+    mkdirSync(dirname(this.filePath), { recursive: true });
+    const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
+    writeFileSync(temporaryPath, `${JSON.stringify(document, null, 2)}\n`, {
+      encoding: 'utf8',
+      mode: 0o600,
+    });
+    renameSync(temporaryPath, this.filePath);
   }
 
   private append(routine: Routine, type: RoutineEventType, detail: string): void {

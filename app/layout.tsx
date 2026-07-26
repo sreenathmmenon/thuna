@@ -24,10 +24,19 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
+/**
+ * Runs synchronously before the app renders so the elder's chosen text size
+ * applies from the very first paint — no size jump on load.
+ */
+const TEXT_SIZE_BOOT = `try{var s=localStorage.getItem('thuna-text-size');if(s==='large'||s==='xl'){document.documentElement.dataset.text=s;}}catch(e){}`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <script dangerouslySetInnerHTML={{ __html: TEXT_SIZE_BOOT }} />
+        {children}
+      </body>
     </html>
   );
 }

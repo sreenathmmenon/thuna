@@ -70,10 +70,25 @@ before any consequential step.
 - Deterministic reminder scheduling, in-app check-ins, snooze, retry, completion,
   cancellation, and append-only event history.
 - File-backed profile, preferences, contacts, routine, memory, and continuity
-  stores.
+  stores. Routines persist through the same atomic temp-write pattern as memory
+  and continuity, so a promised reminder survives a restart or redeploy.
 - Explicit family-notification consent, minimum disclosure, and consent history.
 - Optional Telegram notification adapter when credentials are deliberately
   configured.
+
+### Elder accessibility
+
+- The entire type scale is rem-based and never locks text-size adjustment, so
+  the elder's system/browser text size setting applies everywhere.
+- An in-app three-step text size control (Normal / Large / Largest) persists
+  across sessions and applies before first paint.
+- Every piece of spoken guidance is shown in large type inside a screen-reader
+  live region, with a "Say it again" control that replays the audio without
+  touching engine state.
+- "Try saying" starter phrases on the Talk screen show real, working
+  utterances; typing, demo audio, and upload sit one tap away and surface
+  automatically when the microphone is unavailable.
+- Gentle, guarded haptics accompany listening, confirmation, and completion.
 
 ## Architecture
 
@@ -275,7 +290,7 @@ storage.
 The committed integration baseline passed:
 
 - `npx tsc --noEmit`
-- `npm test`: 126/126 tests
+- `npm test`: 132/132 tests
 - `npm run build`
 - Live Railway `/` and `/api/health`: HTTP 200
 - Live localhost Swiggy OAuth and read/cart calls

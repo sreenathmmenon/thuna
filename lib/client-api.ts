@@ -82,7 +82,7 @@ export interface HomeSnapshot {
   elderName: string;
   language: 'English' | 'Malayalam';
   pace: 'Normal' | 'Slow';
-  nextRoutine: RoutineSummary;
+  nextRoutine: RoutineSummary | null;
   recentActivity: HistoryItem;
   routines: RoutineSummary[];
   history: HistoryItem[];
@@ -128,6 +128,11 @@ export interface ClientApi {
    */
   uploadAudioTurn(file: Blob, filename?: string): Promise<VoiceTurn>;
   interpretDemoText(text: string): Promise<VoiceTurn>;
+  /**
+   * Speak the last guidance again, slowly. Touches no engine or session state;
+   * returns false when nothing has been spoken yet this session.
+   */
+  replayGuidance(): Promise<boolean>;
   createMedicineReminder(delaySeconds?: number): Promise<string>;
   triggerDueRoutines(): Promise<void>;
   updateRoutine(
@@ -327,6 +332,12 @@ let recorder: MediaRecorder | null = null;
 let recorderStream: MediaStream | null = null;
 let audioChunks: Blob[] = [];
 
+/**
+ * The most recent guidance Thuna spoke aloud, kept so the elder can ask to
+ * hear it again without re-running the turn (no engine state is touched).
+ */
+let lastSpokenGuidance: string | null = null;
+
 async function fetchJson<T>(input: RequestInfo | URL, init?: RequestInit): Promise<T> {
   const response = await fetch(input, init);
   const data = await response.json() as T & {
@@ -388,6 +399,7 @@ async function speakGuidance(
   pace: 'Normal' | 'Slow' = 'Slow',
 ): Promise<string> {
   if (typeof window === 'undefined') return 'Speech deferred to browser';
+  lastSpokenGuidance = text;
   try {
     const response = await fetch('/api/tts', {
       method: 'POST',
@@ -507,14 +519,16 @@ export const clientApi: ClientApi = {
           simulated: entry.metadata?.simulated === true,
         }));
       const history = memoryHistory.length ? memoryHistory : initialHistory.map((item) => ({ ...item }));
-      const visibleRoutines = routines.length ? routines : initialRoutines.map((routine) => ({ ...routine }));
+      /* Real routines only. Substituting demo routines here would render
+         cards whose ids do not exist on the server, so Done/Snooze would
+         silently fail — an empty list with a way to act is the honest state. */
       return {
         elderName: profile.name,
         language: profile.preferredLanguage === 'Malayalam' ? 'Malayalam' : 'English',
         pace: profile.preferredPace === 'slow' ? 'Slow' : 'Normal',
-        nextRoutine: visibleRoutines[0],
+        nextRoutine: routines[0] ?? null,
         recentActivity: history[0],
-        routines: visibleRoutines,
+        routines,
         history,
         contacts: memoryData.memory.trustedFamilyContacts.map((contact) => ({
           id: contact.id,
@@ -783,6 +797,12 @@ export const clientApi: ClientApi = {
       },
     );
     return data.familyRequest;
+  },
+
+  async replayGuidance() {
+    if (!lastSpokenGuidance) return false;
+    await speakGuidance(lastSpokenGuidance, 'Slow');
+    return true;
   },
 
   async updatePreferences(language, pace) {
