@@ -18,12 +18,32 @@ export interface SwiggyRuntime {
 type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
 let shared: SwiggyRuntime | undefined;
 
+export function resolveSwiggyDataRoot(
+  env: RuntimeEnvironment = process.env,
+): string {
+  const configuredRoot = env.THUNA_DATA_ROOT?.trim()
+    || env.RAILWAY_VOLUME_MOUNT_PATH?.trim()
+    || env.THUNA_DATA_DIR?.trim();
+  return resolve(configuredRoot || 'data');
+}
+
+export function resolveSwiggyCallbackUrl(
+  env: RuntimeEnvironment = process.env,
+): string {
+  const explicit = env.THUNA_SWIGGY_CALLBACK_URL?.trim();
+  if (explicit) return explicit;
+  const railwayDomain = env.RAILWAY_PUBLIC_DOMAIN?.trim();
+  if (railwayDomain) {
+    return `https://${railwayDomain}/api/integrations/swiggy/callback`;
+  }
+  return 'http://localhost:3000/api/integrations/swiggy/callback';
+}
+
 export function createSwiggyRuntime(
   env: RuntimeEnvironment = process.env,
 ): SwiggyRuntime {
-  const dataRoot = resolve(env.THUNA_DATA_ROOT ?? 'data');
-  const callbackUrl = env.THUNA_SWIGGY_CALLBACK_URL
-    ?? 'http://localhost:3000/api/integrations/swiggy/callback';
+  const dataRoot = resolveSwiggyDataRoot(env);
+  const callbackUrl = resolveSwiggyCallbackUrl(env);
   const store = new ServerCredentialStore<StoredSwiggyOAuth>(
     'swiggy',
     resolve(dataRoot, 'private', 'swiggy-oauth.json'),

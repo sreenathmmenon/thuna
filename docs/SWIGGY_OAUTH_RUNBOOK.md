@@ -27,3 +27,11 @@ To disconnect, use the integration API’s `DISCONNECT` action. It attempts the 
 - Callback mismatch: change `THUNA_SWIGGY_CALLBACK_URL`, remove `data/private/swiggy-oauth.json`, restart and reconnect.
 
 Sources: [Swiggy developer quickstart](https://mcp.swiggy.com/builders/docs/start/developer/) and [Swiggy authentication](https://mcp.swiggy.com/builders/docs/start/authenticate/).
+
+## Railway
+
+Railway derives the callback from `RAILWAY_PUBLIC_DOMAIN` and stores credentials
+on the mounted volume selected by `RAILWAY_VOLUME_MOUNT_PATH` or
+`THUNA_DATA_DIR`. Keep one replica and `THUNA_ENABLE_REAL_SWIGGY_ORDER=false`.
+The exact public HTTPS callback must be accepted by Swiggy before connecting.
+This file-backed mode supports one connected demo account, not multiple users.

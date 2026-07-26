@@ -7,6 +7,10 @@ import {
   type StoredSwiggyOAuth,
 } from '../lib/integrations/swiggy/oauth';
 import { redactProviderData, redactSecret } from '../lib/integrations/redact';
+import {
+  resolveSwiggyCallbackUrl,
+  resolveSwiggyDataRoot,
+} from '../lib/integrations/swiggy/runtime';
 
 class MemoryStore implements CredentialStore<StoredSwiggyOAuth> {
   value?: StoredSwiggyOAuth;
@@ -16,6 +20,29 @@ class MemoryStore implements CredentialStore<StoredSwiggyOAuth> {
 }
 
 describe('Swiggy OAuth security', () => {
+  it('uses Railway volume and public HTTPS callback defaults', () => {
+    expect(resolveSwiggyDataRoot({
+      RAILWAY_VOLUME_MOUNT_PATH: '/app/data',
+      THUNA_DATA_DIR: '/other',
+    })).toBe('/app/data');
+    expect(resolveSwiggyCallbackUrl({
+      RAILWAY_PUBLIC_DOMAIN: 'thuna-production.up.railway.app',
+    })).toBe(
+      'https://thuna-production.up.railway.app/api/integrations/swiggy/callback',
+    );
+  });
+
+  it('allows explicit Swiggy storage and callback overrides', () => {
+    expect(resolveSwiggyDataRoot({
+      THUNA_DATA_ROOT: '/custom/swiggy',
+      RAILWAY_VOLUME_MOUNT_PATH: '/app/data',
+    })).toBe('/custom/swiggy');
+    expect(resolveSwiggyCallbackUrl({
+      THUNA_SWIGGY_CALLBACK_URL: 'https://example.com/swiggy/callback',
+      RAILWAY_PUBLIC_DOMAIN: 'ignored.example',
+    })).toBe('https://example.com/swiggy/callback');
+  });
+
   it('generates an RFC 7636 S256 verifier and challenge', () => {
     const pair = generatePkcePair();
     expect(pair.verifier.length).toBeGreaterThanOrEqual(43);

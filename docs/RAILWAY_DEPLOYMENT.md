@@ -20,6 +20,13 @@
 - **Volume:** `thuna-volume`, mount path **`/app/data`**, attached to service Thuna.
 - All Thuna persistent data resolves through `lib/storage.ts` (`dataRoot()` priority: `RAILWAY_VOLUME_MOUNT_PATH` → `THUNA_DATA_DIR` → `<cwd>/data`). `THUNA_DATA_DIR=/app/data` is set as a Railway variable.
 - **Single replica required** while file-backed storage is used (`railway.json` `deploy.replicas = 1`). Do not horizontally scale until storage moves to a transactional database.
+- Swiggy OAuth credentials resolve to the same volume under `/app/data/private/`.
+
+## Swiggy on Railway
+- Set `THUNA_FOOD_ADAPTER=swiggy` and keep `THUNA_ENABLE_REAL_SWIGGY_ORDER=false`.
+- The callback defaults to `https://$RAILWAY_PUBLIC_DOMAIN/api/integrations/swiggy/callback`; set `THUNA_SWIGGY_CALLBACK_URL` only when an explicit exact URL is required.
+- Swiggy must accept the exact public HTTPS callback before Railway OAuth can complete.
+- The current file-backed credential/session model is suitable for the single-account demo deployment only. It must be replaced with per-user database storage before multi-user production use.
 
 ## Healthcheck
 - Path: `/api/health` → `GET` returns `{status, service, release, timestamp}`, no external calls. Timeout 180s.
