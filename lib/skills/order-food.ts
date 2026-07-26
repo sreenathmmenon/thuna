@@ -1,4 +1,5 @@
-import type { TaskSkill, SessionCtx, ScreenState, ParsedCommand } from '../types';
+import type { SessionCtx, ParsedCommand } from '../types';
+import { defineSkill, type GovernedTaskSkill } from './contract';
 
 // A food order: item name + included customisations + explicitly-excluded customisations.
 export interface FoodOrder { name: string; includes: string[]; excludes: string[]; }
@@ -13,9 +14,20 @@ function orderOf(ctx: SessionCtx): FoodOrder {
 }
 function priceOf(name: string): number { return PRICES[name.toLowerCase()] ?? 100; }
 
-export const ORDER_FOOD: TaskSkill = {
+export const ORDER_FOOD: GovernedTaskSkill = defineSkill({
   id: 'ORDER_FOOD',
   label: 'Order food',
+  metadata: {
+    kind: 'transaction',
+    description: 'Restore, correct, read back, and simulate a food order.',
+    utteranceHints: ['order food', 'usual dosa', 'restaurant'],
+    capabilities: ['restore_previous_order', 'correct_order', 'explain_total'],
+    externalAction: 'simulated',
+    requiresExplicitConfirmation: true,
+    completionLabel: 'SIMULATED ORDER SUCCESS',
+    disclaimer: 'This is a simulated result — no real order was placed.',
+    safetyInvariants: ['credential_refusal', 'readback_before_action', 'correction_invalidates_confirmation'],
+  },
   requiredFields: ['restaurant', 'items', 'address'],
   steps: [
     { id: 'ask_item', prompt: 'What would you like to order today?', field: 'items' },
@@ -29,6 +41,14 @@ export const ORDER_FOOD: TaskSkill = {
     { id: 'no_credential', type: 'refuse_pattern', pattern: 'otp|pin|cvv|card number|password', message: 'I will never ask for or accept an OTP, PIN, CVV, or password.' },
   ],
   completionCondition: 'Order placed with confirmed item, total, and address.',
+  complete(ctx) {
+    return {
+      simulated: true,
+      label: 'SIMULATED ORDER SUCCESS',
+      summary: ORDER_FOOD.handler?.readback?.(ctx) ?? 'Simulated food order',
+      disclaimer: ORDER_FOOD.metadata.disclaimer,
+    };
+  },
   handler: {
     restorePreference(ctx) {
       const usual = ctx.preferences.usualOrder as { restaurant: string; items: FoodOrder; address: string } | undefined;
@@ -95,4 +115,4 @@ export const ORDER_FOOD: TaskSkill = {
       };
     },
   },
-};
+});
