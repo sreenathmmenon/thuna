@@ -32,6 +32,16 @@ path; the candidate was not saved.
 | --- | --- | --- |
 | ![Thuna elder home with Talk, today, alerts and family help](public/screenshots/10-home-companion.png) | ![Thuna reminders screen with natural-language reminder intake](public/screenshots/11-reminders-companion.png) | ![Thuna reminder review showing the exact date and time before save](public/screenshots/12-reminder-review-sarvam.png) |
 
+### Multilingual reminder validation
+
+These requests were interpreted through the real configured Sarvam path.
+Deterministic code converted the requested local time and generated the final
+language-specific read-back. Neither candidate was saved.
+
+| Malayalam | Hindi |
+| --- | --- |
+| ![Malayalam reminder request and Malayalam confirmation read-back](public/screenshots/13-reminder-review-malayalam.png) | ![Hindi reminder request and Hindi confirmation read-back](public/screenshots/14-reminder-review-hindi.png) |
+
 ## What the current product release includes
 
 ### Voice and language
@@ -315,7 +325,7 @@ storage.
 The committed integration baseline passed:
 
 - `npx tsc --noEmit`
-- `npm test`: 142/142 tests
+- `npm test`: 144/144 tests
 - `npm run build`
 - Live Railway `/` and `/api/health`: HTTP 200
 - Live localhost Swiggy OAuth and read/cart calls

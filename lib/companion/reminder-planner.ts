@@ -67,6 +67,7 @@ Do not choose delivery channels, retry counts, calls, or family escalation; dete
 Return every key in this exact shape:
 {"type":"APPOINTMENT_REMINDER","title":"Clinic appointment","reminderText":"It is time to prepare for your clinic appointment.","scheduledLocal":"2026-07-28T08:00:00","recurrence":{"frequency":"ONCE"},"confidence":0.95}
 scheduledLocal is the elder's wall-clock date and time in the supplied timezone.
+Use the supplied language for title and reminderText.
 Do not convert scheduledLocal to UTC and do not generate a readback; deterministic code owns both.`;
 
 function extractJson(raw: string): unknown | null {
@@ -161,8 +162,10 @@ function readbackFor(
   scheduledFor: Date,
   timezone: string,
   recurrence: RecurrenceRule,
+  language: string,
 ): string {
   const when = new Intl.DateTimeFormat('en-IN', {
+    localeMatcher: 'best fit',
     timeZone: timezone,
     weekday: 'long',
     day: 'numeric',
@@ -170,10 +173,46 @@ function readbackFor(
     hour: 'numeric',
     minute: '2-digit',
   }).format(scheduledFor);
+  if (language === 'Malayalam') {
+    const date = new Intl.DateTimeFormat('ml-IN', {
+      timeZone: timezone,
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    }).format(scheduledFor);
+    const clock = partsInTimezone(scheduledFor, timezone);
+    const period = clock.hour < 12 ? 'രാവിലെ' : 'വൈകുന്നേരം';
+    const hour = clock.hour % 12 || 12;
+    const time = `${period} ${hour}:${String(clock.minute).padStart(2, '0')}`;
+    const repeats: Record<RecurrenceRule['frequency'], string> = {
+      ONCE: '',
+      DAILY: ', എല്ലാ ദിവസവും ആവർത്തിക്കും',
+      WEEKLY: ', എല്ലാ ആഴ്ചയും ആവർത്തിക്കും',
+      MONTHLY: ', എല്ലാ മാസവും ആവർത്തിക്കും',
+    };
+    return `${date} ${time}-ന് ${title} ഓർമ്മിപ്പിക്കാം${repeats[recurrence.frequency]}. ഇത് ശരിയാണോ?`;
+  }
+  if (language === 'Hindi') {
+    const date = new Intl.DateTimeFormat('hi-IN', {
+      timeZone: timezone,
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    }).format(scheduledFor);
+    const clock = partsInTimezone(scheduledFor, timezone);
+    const period = clock.hour < 12 ? 'सुबह' : 'शाम';
+    const hour = clock.hour % 12 || 12;
+    const time = `${period} ${hour}:${String(clock.minute).padStart(2, '0')} बजे`;
+    const repeats: Record<RecurrenceRule['frequency'], string> = {
+      ONCE: '',
+      DAILY: ', हर दिन दोहराया जाएगा',
+      WEEKLY: ', हर सप्ताह दोहराया जाएगा',
+      MONTHLY: ', हर महीने दोहराया जाएगा',
+    };
+    return `मैं आपको ${date} को ${time} ${title} की याद दिलाऊँगा${repeats[recurrence.frequency]}। क्या यह सही है?`;
+  }
   const repeats =
-    recurrence.frequency === 'ONCE'
-      ? ''
-      : `, repeating ${recurrence.frequency.toLowerCase()}`;
+    recurrence.frequency === 'ONCE' ? '' : `, repeating ${recurrence.frequency.toLowerCase()}`;
   return `I will remind you about ${title} on ${when}${repeats}. Is that right?`;
 }
 
@@ -258,6 +297,7 @@ export async function planReminder(
       scheduled,
       timezone,
       parsed.data.recurrence,
+      request.language,
     ),
     ...safeCopy,
     timezone,

@@ -124,6 +124,40 @@ describe('proactive elder reminder delivery', () => {
     expect(plan.escalation?.maxRetries).toBe(2);
   });
 
+  it.each([
+    {
+      language: 'Malayalam',
+      title: 'ക്ലിനിക് അപ്പോയിന്റ്മെന്റ്',
+      marker: 'ഇത് ശരിയാണോ?',
+    },
+    {
+      language: 'Hindi',
+      title: 'क्लिनिक की अपॉइंटमेंट',
+      marker: 'क्या यह सही है?',
+    },
+  ])('builds a deterministic $language readback', async ({ language, title, marker }) => {
+    const askChat = vi.fn().mockResolvedValue(
+      JSON.stringify({
+        type: 'APPOINTMENT_REMINDER',
+        title,
+        reminderText: title,
+        scheduledLocal: '2026-07-28T08:00:00',
+        recurrence: { frequency: 'ONCE' },
+        confidence: 0.95,
+      }),
+    );
+    const plan = await planReminder(title, {
+      now: new Date('2026-07-27T12:00:00.000Z'),
+      timezone: 'Asia/Kolkata',
+      language,
+      askChat,
+    });
+
+    expect(plan.readback).toContain(title);
+    expect(plan.readback).toContain(marker);
+    expect(plan.scheduledFor).toBe('2026-07-28T02:30:00.000Z');
+  });
+
   it('calls only on a retry and preserves the alert when the provider fails', async () => {
     const now = () => new Date('2026-07-27T08:00:00.000Z');
     const stored = routineStore(now).create({

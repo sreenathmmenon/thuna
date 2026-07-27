@@ -27,6 +27,8 @@ export type VoicePhase =
   | 'speaking'
   | 'error';
 
+export type SupportedLanguage = 'English' | 'Malayalam' | 'Hindi';
+
 export type TaskKind =
   | 'ORDER_FOOD'
   | 'SEND_PAYMENT'
@@ -83,7 +85,7 @@ export interface TrustedContact {
 
 export interface HomeSnapshot {
   elderName: string;
-  language: 'English' | 'Malayalam';
+  language: SupportedLanguage;
   pace: 'Normal' | 'Slow';
   nextRoutine: RoutineSummary | null;
   recentActivity: HistoryItem;
@@ -174,7 +176,7 @@ export interface ClientApi {
     id: string,
     target: FamilyRequestState | 'OFFERED',
   ): Promise<FamilyAttentionRequest>;
-  updatePreferences(language: 'English' | 'Malayalam', pace: 'Normal' | 'Slow'): Promise<void>;
+  updatePreferences(language: SupportedLanguage, pace: 'Normal' | 'Slow'): Promise<void>;
   resetDemo(): Promise<HomeSnapshot>;
 }
 
@@ -527,7 +529,10 @@ export const clientApi: ClientApi = {
          silently fail — an empty list with a way to act is the honest state. */
       return {
         elderName: profile.name,
-        language: profile.preferredLanguage === 'Malayalam' ? 'Malayalam' : 'English',
+        language:
+          profile.preferredLanguage === 'Malayalam' || profile.preferredLanguage === 'Hindi'
+            ? profile.preferredLanguage
+            : 'English',
         pace: profile.preferredPace === 'slow' ? 'Slow' : 'Normal',
         nextRoutine: routines[0] ?? null,
         recentActivity: history[0],

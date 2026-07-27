@@ -931,6 +931,7 @@ export default function ThunaMobile(): JSX.Element {
                       body: JSON.stringify({
                         utterance: reminderRequest,
                         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        language: home?.language ?? 'English',
                       }),
                     })
                       .then(async (response) => {
