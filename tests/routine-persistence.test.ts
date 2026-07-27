@@ -85,8 +85,42 @@ describe('RoutineStore file persistence', () => {
       version: number;
       routines: Array<{ id: string }>;
     };
-    expect(raw.version).toBe(1);
+    expect(raw.version).toBe(2);
     expect(raw.routines).toHaveLength(1);
+  });
+
+  it('loads version 1 reminders with safe additive defaults', () => {
+    writeFileSync(
+      filePath,
+      JSON.stringify({
+        version: 1,
+        routines: [
+          {
+            id: 'legacy-reminder',
+            type: 'WATER_REMINDER',
+            title: 'Water reminder',
+            reminderText: 'This is your agreed water reminder.',
+            state: 'SCHEDULED',
+            scheduledFor: '2026-07-26T11:00:00.000Z',
+            createdAt: '2026-07-26T09:00:00.000Z',
+            updatedAt: '2026-07-26T09:00:00.000Z',
+            snoozeCount: 0,
+            retryCount: 0,
+            familyRequested: false,
+            history: [],
+          },
+        ],
+      }),
+    );
+
+    const migrated = newStore().get('legacy-reminder');
+    expect(migrated.recurrence).toEqual({ frequency: 'ONCE' });
+    expect(migrated.channels).toEqual(['DEVICE_ALERT']);
+    expect(migrated.escalation).toEqual({
+      retryAfterMinutes: 10,
+      maxRetries: 1,
+      notifyFamilyAfterMissed: false,
+    });
   });
 
   it('refuses to load a file that does not match the contract', () => {

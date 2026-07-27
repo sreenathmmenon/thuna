@@ -22,6 +22,16 @@ loads a governed task or routine, reads important details back, allows one-field
 corrections without losing other choices, and requires explicit confirmation
 before any consequential step.
 
+## Product screens
+
+These mobile screenshots were captured from the local production code on
+27 July 2026. The reminder review used the configured Sarvam interpretation
+path; the candidate was not saved.
+
+| Elder home | Reminders | Sarvam-reviewed reminder |
+| --- | --- | --- |
+| ![Thuna elder home with Talk, today, alerts and family help](public/screenshots/10-home-companion.png) | ![Thuna reminders screen with natural-language reminder intake](public/screenshots/11-reminders-companion.png) | ![Thuna reminder review showing the exact date and time before save](public/screenshots/12-reminder-review-sarvam.png) |
+
 ## What the current product release includes
 
 ### Voice and language
@@ -69,12 +79,22 @@ before any consequential step.
 
 - Deterministic reminder scheduling, in-app check-ins, snooze, retry, completion,
   cancellation, and append-only event history.
+- Natural-language reminder proposals through Sarvam, with elder read-back and
+  confirmation before the exact reviewed proposal is persisted.
+- Automatic no-response processing and a deterministic delivery policy:
+  medicine and appointment reminders may escalate from a device alert to a
+  configured phone call; ordinary check-ins remain device alerts.
+- Installable PWA reminder notifications with Done, Remind me later, and Ask
+  family actions.
 - File-backed profile, preferences, contacts, routine, memory, and continuity
   stores. Routines persist through the same atomic temp-write pattern as memory
   and continuity, so a promised reminder survives a restart or redeploy.
 - Explicit family-notification consent, minimum disclosure, and consent history.
-- Optional Telegram notification adapter when credentials are deliberately
-  configured.
+- Optional Telegram family/admin notification adapter when credentials are
+  deliberately configured. Telegram is not an elder reminder channel.
+- Optional Exotel outbound-call adapter and authenticated Sarvam voice-outcome
+  endpoint. Real calls require an explicit feature flag and server-only
+  credentials.
 
 ### Elder accessibility
 
@@ -119,8 +139,9 @@ order, send a payment, or disclose family content.
 | Swiggy order placement | Disabled by default and never used by automated tests |
 | Default food workflow | Clearly labelled simulated provider integration |
 | Payment and generic tracking actions | Simulated provider integrations |
-| Telegram family notification | Optional real adapter with explicit credentials and consent |
-| Telephony | Interface-only |
+| Telegram family/admin notification | Optional real adapter with explicit credentials and consent; not used for elder reminders |
+| Exotel outbound reminder calls | Implemented adapter; disabled unless explicitly enabled and configured |
+| Sarvam phone-conversation outcome | Authenticated server endpoint; requires a configured Exotel Voicebot/Sarvam deployment |
 | Vision document extraction, ride provider, family story loop | Documentation or adapter-only |
 
 ## Swiggy Food MCP integration
@@ -280,6 +301,10 @@ storage.
 - `GET|POST /api/routines`
 - `POST /api/routines/trigger`
 - `GET|PATCH /api/routines/[id]`
+- `POST /api/companion/plan`
+- `GET /api/companion/status`
+- `POST /api/telephony/outcome`
+- `POST /api/telephony/exotel/status`
 - `GET|POST /api/continuity`
 - Memory endpoints under `/api/memory/*`
 - Family consent and request endpoints under `/api/family/*`
@@ -290,7 +315,7 @@ storage.
 The committed integration baseline passed:
 
 - `npx tsc --noEmit`
-- `npm test`: 132/132 tests
+- `npm test`: 142/142 tests
 - `npm run build`
 - Live Railway `/` and `/api/health`: HTTP 200
 - Live localhost Swiggy OAuth and read/cart calls
@@ -326,6 +351,7 @@ Start with [`docs/README.md`](docs/README.md). Key references include:
 - [Runbook](docs/RUNBOOK.md)
 - [Demo script](docs/DEMO_SCRIPT.md)
 - [Continuity companion status](docs/CONTINUITY_COMPANION_INTEGRATION_STATUS.md)
+- [Production elder companion](docs/PRODUCTION_ELDER_COMPANION.md)
 - [Real Swiggy integration](docs/SWIGGY_REAL_INTEGRATION.md)
 - [Swiggy OAuth runbook](docs/SWIGGY_OAUTH_RUNBOOK.md)
 - [Swiggy provider boundary](docs/SWIGGY_PROVIDER_BOUNDARY.md)

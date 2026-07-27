@@ -627,6 +627,21 @@ ul { margin: 0; padding: 0; list-style: none; }
   font-size: var(--fs-body);
 }
 
+.device-alert-card {
+  display: grid;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-6);
+  border: 1px solid var(--border-attention);
+  border-radius: var(--r-md);
+  background: var(--surface-attention);
+}
+.device-alert-card p {
+  margin-top: var(--sp-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+}
+
 /* ==========================================================================
    Utilities
    ========================================================================== */

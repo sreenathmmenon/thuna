@@ -11,11 +11,12 @@
  * separate, unlinked route (/inspector).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Disclosure } from '../components/elder/Disclosure';
 import { ElderShell, type ElderArea } from '../components/elder/ElderShell';
 import { TextSizeControl, type TextSizeStep } from '../components/elder/TextSizeControl';
+import { DeviceAlerts, showDeviceReminder } from '../components/elder/DeviceAlerts';
 import { HomeScreen, type HomeContextItem } from '../components/elder/HomeScreen';
 import { VoiceStatePanel, type VoiceUiState } from '../components/elder/VoiceStatePanel';
 import { TalkButton, type TalkVisualState } from '../components/elder/TalkButton';
@@ -248,6 +249,19 @@ const STARTER_PHRASES: readonly string[] = [
 /* Page                                                                */
 /* ------------------------------------------------------------------ */
 
+interface PlannedReminder {
+  proposalId: string;
+  plan: {
+    type: RoutineKindUi;
+    title: string;
+    reminderText: string;
+    scheduledFor: string;
+    timezone: string;
+    recurrence: { frequency: string };
+    readback: string;
+  };
+}
+
 type Overlay =
   | { kind: 'none' }
   | { kind: 'confirm' }
@@ -279,9 +293,15 @@ export default function ThunaMobile(): JSX.Element {
   const [textSize, setTextSize] = useState<TextSizeStep>('normal');
   const [replaying, setReplaying] = useState(false);
   const [moreWaysOpen, setMoreWaysOpen] = useState(false);
+  const [reminderRequest, setReminderRequest] = useState('');
+  const [plannedReminder, setPlannedReminder] = useState<PlannedReminder | null>(null);
+  const [reminderError, setReminderError] = useState('');
+  const notifiedRoutines = useRef(new Set<string>());
 
   useEffect(() => {
     setTextSize(loadTextSize());
+    const requestedArea = new URLSearchParams(window.location.search).get('area');
+    if (requestedArea === 'reminders') setArea('reminders');
   }, []);
 
   const onTextSize = useCallback((step: TextSizeStep) => {
@@ -355,6 +375,29 @@ export default function ThunaMobile(): JSX.Element {
     if (snapshot.status === 'fulfilled') setHome(snapshot.value);
     if (nextContinuity.status === 'fulfilled') setContinuity(nextContinuity.value);
   }, []);
+
+  useEffect(() => {
+    const run = () => {
+      if (document.visibilityState !== 'visible') return;
+      void clientApi.triggerDueRoutines().finally(refresh);
+    };
+    run();
+    const interval = window.setInterval(run, 15_000);
+    return () => window.clearInterval(interval);
+  }, [refresh]);
+
+  useEffect(() => {
+    const active = home?.routines.find(
+      (routine) => routine.status === 'DUE' || routine.status === 'ACTIVE',
+    );
+    if (!active || notifiedRoutines.current.has(active.id)) return;
+    notifiedRoutines.current.add(active.id);
+    void showDeviceReminder({
+      routineId: active.id,
+      title: active.title,
+      body: active.detail,
+    });
+  }, [home]);
 
   const applyTurn = useCallback((turn: VoiceTurn) => {
     const providerOwnsConfirmation =
@@ -648,6 +691,7 @@ export default function ThunaMobile(): JSX.Element {
     <ElderShell area={area} onNavigate={setArea} offline={offline}>
       {area === 'home' ? (
         <>
+          <DeviceAlerts />
           <HomeScreen
             greeting={greetingFor(home?.elderName ?? 'Appa')}
             subtitle="What can I help you with?"
@@ -851,6 +895,119 @@ export default function ThunaMobile(): JSX.Element {
       {area === 'reminders' ? (
         <>
           <h1 className="greeting">Your reminders</h1>
+
+          <Section label="Create a reminder">
+            <div className="card">
+              <label className="section-label" htmlFor="reminder-request">
+                Tell Thuna naturally
+              </label>
+              <textarea
+                id="reminder-request"
+                className="field"
+                rows={3}
+                value={reminderRequest}
+                onChange={(event) => {
+                  setReminderRequest(event.target.value);
+                  setPlannedReminder(null);
+                }}
+                placeholder="Remind me every day at 8 in the morning to take my medicine"
+              />
+              {reminderError ? (
+                <p className="caption mt-4" role="alert">
+                  {reminderError}
+                </p>
+              ) : null}
+              <div className="mt-4">
+                <button
+                  type="button"
+                  className="btn btn--primary"
+                  disabled={busy || !reminderRequest.trim()}
+                  onClick={() => {
+                    setBusy(true);
+                    setReminderError('');
+                    void fetch('/api/companion/plan', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        utterance: reminderRequest,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                      }),
+                    })
+                      .then(async (response) => {
+                        const data = (await response.json()) as PlannedReminder & {
+                          error?: { message?: string };
+                        };
+                        if (!response.ok) {
+                          throw new Error(data.error?.message || 'I could not plan that reminder.');
+                        }
+                        setPlannedReminder(data);
+                      })
+                      .catch((planningError: Error) =>
+                        setReminderError(planningError.message),
+                      )
+                      .finally(() => setBusy(false));
+                  }}
+                >
+                  Review reminder
+                </button>
+              </div>
+
+              {plannedReminder ? (
+                <div className="mt-6">
+                  <p className="body-text">
+                    <strong>{plannedReminder.plan.readback}</strong>
+                  </p>
+                  <p className="caption mt-4">
+                    {new Date(plannedReminder.plan.scheduledFor).toLocaleString()} ·{' '}
+                    {plannedReminder.plan.recurrence.frequency.toLowerCase()}
+                  </p>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      className="btn btn--primary"
+                      disabled={busy}
+                      onClick={() => {
+                        setBusy(true);
+                        setReminderError('');
+                        void fetch('/api/companion/plan', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            confirm: true,
+                            proposalId: plannedReminder.proposalId,
+                          }),
+                        })
+                          .then(async (response) => {
+                            const data = (await response.json()) as {
+                              error?: { message?: string };
+                            };
+                            if (!response.ok) {
+                              throw new Error(data.error?.message || 'I could not save that reminder.');
+                            }
+                            setPlannedReminder(null);
+                            setReminderRequest('');
+                            await refresh();
+                          })
+                          .catch((savingError: Error) =>
+                            setReminderError(savingError.message),
+                          )
+                          .finally(() => setBusy(false));
+                      }}
+                    >
+                      Yes, save it
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn--quiet"
+                      onClick={() => setPlannedReminder(null)}
+                    >
+                      Change it
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </Section>
 
           <Section label="Check-ins">
             {(home?.routines ?? []).length === 0 ? (

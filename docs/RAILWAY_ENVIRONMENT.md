@@ -26,14 +26,25 @@ Set in the Railway service (never committed). `SARVAM_API_KEY` was sourced from 
 | `THUNA_ENABLE_REAL_SWIGGY_ORDER` | `false` | Master safety flag; real ordering requires explicit in-the-moment confirmation. |
 | `THUNA_SWIGGY_CALLBACK_URL` | derived | Optional explicit OAuth callback. Otherwise uses `https://$RAILWAY_PUBLIC_DOMAIN/api/integrations/swiggy/callback`. |
 | `THUNA_DATA_ROOT` | derived | Optional Swiggy-only override. Otherwise uses the Railway volume or `THUNA_DATA_DIR`. |
+| `THUNA_SCHEDULER_ENABLED` | `false` | Set `true` only on the single persistent reminder worker/service. |
+| `THUNA_SCHEDULER_INTERVAL_SECONDS` | `15` | Bounded to 5–300 seconds. |
+| `THUNA_ENABLE_REAL_TELEPHONY` | `false` | Master switch. Exotel credentials alone cannot place a call. |
 
 ## Optional (per-file overrides; usually unset)
 - `THUNA_MEMORY_PATH`, `THUNA_CONTINUITY_PATH` — override exact data file paths (else under `THUNA_DATA_DIR`).
 - `THUNA_TELEGRAM_BOT_TOKEN` (secret), `THUNA_TELEGRAM_CHAT_ID` — enable Telegram family notifications. **Not set** in the current deployment.
+- `THUNA_TELEPHONY_WEBHOOK_SECRET` (secret, at least 32 random characters) —
+  authenticates governed Sarvam voice outcomes.
+- `THUNA_PUBLIC_BASE_URL` — public HTTPS base for provider callbacks.
+- `THUNA_ELDER_PHONE_NUMBER` (sensitive, E.164) — one configured elder number
+  for the current single-account deployment.
+- `EXOTEL_API_KEY`, `EXOTEL_API_TOKEN` (secrets), `EXOTEL_ACCOUNT_SID`,
+  `EXOTEL_CALLER_ID`, `EXOTEL_API_BASE`, and `EXOTEL_VOICEBOT_FLOW_URL`.
 
 ## Intentionally disabled / not set
 - `THUNA_ENABLE_REAL_SWIGGY_ORDER=false` → real Swiggy ordering is disabled.
 - Railway Swiggy OAuth additionally requires the exact public HTTPS callback to be accepted by Swiggy.
 - File-backed Swiggy credentials support one connected account and one replica. Multi-user deployment requires a per-user database credential store.
-- No telephony (`EXOTEL_*`/`TWILIO_*` are channel types in code, not configured env).
+- `THUNA_ENABLE_REAL_TELEPHONY=false` unless an approved Exotel/Sarvam Voicebot
+  configuration and callback secret have been installed and tested.
 - No `NEXT_PUBLIC_*` secret vars.

@@ -8,6 +8,7 @@ import {
 } from 'node:fs';
 import { dirname } from 'node:path';
 import { RoutineError } from './errors';
+import { ROUTINE_CHANNELS } from './types';
 import type {
   CreateRoutineInput,
   Routine,
@@ -18,14 +19,14 @@ import type {
 import { safeRoutineCopy } from './safety';
 
 interface RoutineDocument {
-  version: 1;
+  version: 1 | 2;
   routines: Routine[];
 }
 
 function isRoutineDocument(value: unknown): value is RoutineDocument {
   if (typeof value !== 'object' || value === null) return false;
   const document = value as { version?: unknown; routines?: unknown };
-  if (document.version !== 1 || !Array.isArray(document.routines)) return false;
+  if (![1, 2].includes(Number(document.version)) || !Array.isArray(document.routines)) return false;
   return document.routines.every((entry) => {
     if (typeof entry !== 'object' || entry === null) return false;
     const routine = entry as Record<string, unknown>;
@@ -42,7 +43,36 @@ function isRoutineDocument(value: unknown): value is RoutineDocument {
 function cloneRoutine(routine: Routine): Routine {
   return {
     ...routine,
+    recurrence: {
+      ...routine.recurrence,
+      ...(routine.recurrence.frequency === 'WEEKLY' && routine.recurrence.weekdays
+        ? { weekdays: [...routine.recurrence.weekdays] }
+        : {}),
+    },
+    channels: [...routine.channels],
+    escalation: { ...routine.escalation },
     history: routine.history.map((event) => ({ ...event })),
+  };
+}
+
+function boundedInteger(value: number | undefined, fallback: number, min: number, max: number): number {
+  return Number.isInteger(value) ? Math.min(max, Math.max(min, value!)) : fallback;
+}
+
+function normaliseRoutine(routine: Routine): Routine {
+  const channels = Array.isArray(routine.channels)
+    ? routine.channels.filter((channel) => ROUTINE_CHANNELS.includes(channel))
+    : [];
+  return {
+    ...routine,
+    timezone: routine.timezone?.trim() || 'Asia/Kolkata',
+    recurrence: routine.recurrence ?? { frequency: 'ONCE' },
+    channels: channels.length ? [...new Set(channels)] : ['DEVICE_ALERT'],
+    escalation: {
+      retryAfterMinutes: boundedInteger(routine.escalation?.retryAfterMinutes, 10, 1, 1440),
+      maxRetries: boundedInteger(routine.escalation?.maxRetries, 1, 0, 5),
+      notifyFamilyAfterMissed: routine.escalation?.notifyFamilyAfterMissed === true,
+    },
   };
 }
 
@@ -65,7 +95,7 @@ export class RoutineStore {
         throw new Error('Stored routine data does not match the current contract.');
       }
       for (const routine of parsed.routines) {
-        this.routines.set(routine.id, cloneRoutine(routine));
+        this.routines.set(routine.id, cloneRoutine(normaliseRoutine(routine)));
       }
     } else if (filePath) {
       this.persist();
@@ -86,6 +116,16 @@ export class RoutineStore {
       ...copy,
       state: 'SCHEDULED',
       scheduledFor: scheduledFor.toISOString(),
+      timezone: input.timezone?.trim() || 'Asia/Kolkata',
+      recurrence: input.recurrence ?? { frequency: 'ONCE' },
+      channels: input.channels?.length
+        ? [...new Set(input.channels.filter((channel) => ROUTINE_CHANNELS.includes(channel)))]
+        : ['DEVICE_ALERT'],
+      escalation: {
+        retryAfterMinutes: boundedInteger(input.escalation?.retryAfterMinutes, 10, 1, 1440),
+        maxRetries: boundedInteger(input.escalation?.maxRetries, 1, 0, 5),
+        notifyFamilyAfterMissed: input.escalation?.notifyFamilyAfterMissed === true,
+      },
       createdAt: at,
       updatedAt: at,
       snoozeCount: 0,
@@ -151,7 +191,7 @@ export class RoutineStore {
 
   private persist(): void {
     if (!this.filePath) return;
-    const document: RoutineDocument = { version: 1, routines: this.list() };
+    const document: RoutineDocument = { version: 2, routines: this.list() };
     mkdirSync(dirname(this.filePath), { recursive: true });
     const temporaryPath = `${this.filePath}.${process.pid}.tmp`;
     writeFileSync(temporaryPath, `${JSON.stringify(document, null, 2)}\n`, {

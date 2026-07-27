@@ -41,6 +41,9 @@ export type RoutineKind =
   | 'BILL_REMINDER'
   | 'FAMILY_CALL_REMINDER'
   | 'DELIVERY_FOLLOW_UP'
+  | 'APPOINTMENT_REMINDER'
+  | 'MEAL_REMINDER'
+  | 'EXERCISE_REMINDER'
   | 'GENERAL_CHECK_IN';
 
 export type RoutineStatus =

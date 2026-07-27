@@ -6,6 +6,9 @@ export type RoutineKindUi =
   | 'BILL_REMINDER'
   | 'FAMILY_CALL_REMINDER'
   | 'DELIVERY_FOLLOW_UP'
+  | 'APPOINTMENT_REMINDER'
+  | 'MEAL_REMINDER'
+  | 'EXERCISE_REMINDER'
   | 'GENERAL_CHECK_IN';
 
 export type RoutineStateUi =
@@ -47,6 +50,12 @@ function questionFor(kind: RoutineKindUi, title: string): string {
       return `You wanted to call about ${title}. Did you get through?`;
     case 'DELIVERY_FOLLOW_UP':
       return `Did your ${title} arrive?`;
+    case 'APPOINTMENT_REMINDER':
+      return `It is time to prepare for ${title}. Are you ready?`;
+    case 'MEAL_REMINDER':
+      return `It is time for ${title}. Have you eaten?`;
+    case 'EXERCISE_REMINDER':
+      return `It is time for ${title}. Would you like to mark it done or ask for more time?`;
     case 'GENERAL_CHECK_IN':
       return `Just checking in about ${title}.`;
   }
@@ -109,9 +118,9 @@ export function CheckInScreen({
               Remind me later
             </button>
           ) : null}
-          {onCancel ? (
-            <button type="button" className="btn btn--quiet" onClick={onCancel}>
-              Not today
+          {onAskFamily ? (
+            <button type="button" className="btn btn--quiet" onClick={onAskFamily}>
+              Ask family
             </button>
           ) : null}
         </div>

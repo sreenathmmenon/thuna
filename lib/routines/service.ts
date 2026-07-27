@@ -1,7 +1,8 @@
 import type { ChannelAdapter } from '../channels/types';
 import type { NotificationAdapter, NotificationResult } from '../notifications/types';
 import { isDue } from '../scheduler/due';
-import { nextTriggerAt } from '../scheduler/clock';
+import { durationToMilliseconds, nextTriggerAt } from '../scheduler/clock';
+import { nextOccurrence } from './recurrence';
 import { RoutineError } from './errors';
 import { isExplicitCompletion } from './safety';
 import { RoutineStore } from './store';
@@ -15,6 +16,7 @@ import type {
 export class RoutineService {
   private readonly demoMode: boolean;
   private readonly now: () => Date;
+  private triggerPromise: Promise<TriggeredRoutine[]> | null = null;
 
   constructor(
     private readonly store: RoutineStore,
@@ -43,6 +45,14 @@ export class RoutineService {
   }
 
   async triggerDue(at: Date = this.now()): Promise<TriggeredRoutine[]> {
+    if (this.triggerPromise) return this.triggerPromise;
+    this.triggerPromise = this.doTriggerDue(at).finally(() => {
+      this.triggerPromise = null;
+    });
+    return this.triggerPromise;
+  }
+
+  private async doTriggerDue(at: Date): Promise<TriggeredRoutine[]> {
     const due = this.store.list().filter((routine) => isDue(routine, at));
     const triggered: TriggeredRoutine[] = [];
 
@@ -66,13 +76,30 @@ export class RoutineService {
           routineId: current.id,
           type: 'CHECK_IN_STARTED',
           at: at.toISOString(),
-          detail: `${delivery.channel} check-in started${delivery.simulated ? ' (SIMULATED)' : ''}.`,
+          detail:
+            delivery.detail ??
+            `${delivery.channel} check-in started${delivery.simulated ? ' (SIMULATED)' : ''}.`,
         });
       });
       triggered.push({ routine, channel: delivery });
     }
 
     return triggered;
+  }
+
+  processUnanswered(at: Date = this.now()): Routine[] {
+    const processed: Routine[] = [];
+    for (const routine of this.store.list()) {
+      if (routine.state !== 'ACTIVE' || !routine.lastTriggeredAt) continue;
+      const elapsed = at.getTime() - new Date(routine.lastTriggeredAt).getTime();
+      const responseWindow = durationToMilliseconds(
+        routine.escalation.retryAfterMinutes,
+        this.demoMode,
+      );
+      if (elapsed < responseWindow) continue;
+      processed.push(this.noResponse(routine.id));
+    }
+    return processed;
   }
 
   snooze(id: string, minutes: number): Routine {
@@ -106,16 +133,43 @@ export class RoutineService {
         409,
       );
     }
-    return this.store.transition(
-      id,
-      ['ACTIVE', 'DUE'],
-      'COMPLETED',
-      'COMPLETED',
-      'Elder explicitly marked the reminder complete.',
-    );
+    return this.store.mutate(id, (routine) => {
+      if (routine.state !== 'ACTIVE' && routine.state !== 'DUE') {
+        throw new RoutineError(
+          'INVALID_TRANSITION',
+          'Only an active reminder can be completed.',
+          409,
+        );
+      }
+      routine.history.push({
+        id: `${routine.id}:complete:${routine.history.length}`,
+        routineId: routine.id,
+        type: 'COMPLETED',
+        at: this.now().toISOString(),
+        detail: 'Elder explicitly marked the reminder complete.',
+      });
+      const next = nextOccurrence(routine.scheduledFor, routine.recurrence);
+      if (!next) {
+        routine.state = 'COMPLETED';
+        return;
+      }
+      routine.state = 'SCHEDULED';
+      routine.scheduledFor = next;
+      routine.lastTriggeredAt = undefined;
+      routine.retryCount = 0;
+      routine.snoozeCount = 0;
+      routine.familyRequested = false;
+      routine.history.push({
+        id: `${routine.id}:next:${routine.history.length}`,
+        routineId: routine.id,
+        type: 'RESCHEDULED',
+        at: this.now().toISOString(),
+        detail: `Next occurrence scheduled for ${next}.`,
+      });
+    });
   }
 
-  noResponse(id: string, retryAfterMinutes = 1): Routine {
+  noResponse(id: string, retryAfterMinutes?: number): Routine {
     const routine = this.store.get(id);
     if (routine.state !== 'ACTIVE' && routine.state !== 'DUE') {
       throw new RoutineError(
@@ -126,18 +180,20 @@ export class RoutineService {
     }
     this.store.appendEvent(id, 'NO_RESPONSE', 'No elder response was received.');
 
-    if (routine.retryCount < 1) {
-      const triggerAt = nextTriggerAt(this.now(), retryAfterMinutes, this.demoMode);
+    if (routine.retryCount < routine.escalation.maxRetries) {
+      const minutes = retryAfterMinutes ?? routine.escalation.retryAfterMinutes;
+      const triggerAt = nextTriggerAt(this.now(), minutes, this.demoMode);
       return this.store.mutate(id, (current) => {
         current.retryCount += 1;
         current.state = 'SNOOZED';
         current.scheduledFor = triggerAt.toISOString();
+        current.lastTriggeredAt = undefined;
         current.history.push({
           id: `${current.id}:retry:${current.history.length}`,
           routineId: current.id,
           type: 'RETRY_SCHEDULED',
           at: this.now().toISOString(),
-          detail: `One retry scheduled for ${current.scheduledFor}.`,
+          detail: `Retry ${current.retryCount} scheduled for ${current.scheduledFor}.`,
         });
       });
     }
@@ -147,7 +203,7 @@ export class RoutineService {
       ['ACTIVE', 'DUE'],
       'MISSED',
       'MISSED',
-      'Check-in marked missed after one retry and no response.',
+      'Check-in marked missed after the configured retries and no response.',
     );
   }
 

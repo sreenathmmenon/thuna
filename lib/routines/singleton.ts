@@ -1,4 +1,4 @@
-import { InAppChannelAdapter } from '../channels/in-app';
+import { createElderChannel } from '../channels/factory';
 import { createNotificationAdapter } from '../notifications/factory';
 import { dataFile } from '../storage';
 import { RoutineService } from './service';
@@ -12,7 +12,7 @@ const storePath = process.env.THUNA_ROUTINES_PATH?.trim()
 function buildRoutineService(): RoutineService {
   return new RoutineService(
     new RoutineStore(undefined, undefined, storePath),
-    new InAppChannelAdapter(),
+    createElderChannel(),
     createNotificationAdapter(),
     { demoMode },
   );

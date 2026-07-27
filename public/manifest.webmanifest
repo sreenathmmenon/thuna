@@ -1,7 +1,7 @@
 {
-  "name": "Thuna — your patient companion",
+  "name": "Thuna — Daily Companion",
   "short_name": "Thuna",
-  "description": "A patient voice companion that helps with everyday digital tasks.",
+  "description": "A calm daily companion for elders.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

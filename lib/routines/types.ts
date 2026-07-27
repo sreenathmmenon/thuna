@@ -4,6 +4,9 @@ export const ROUTINE_TYPES = [
   'BILL_REMINDER',
   'FAMILY_CALL_REMINDER',
   'DELIVERY_FOLLOW_UP',
+  'APPOINTMENT_REMINDER',
+  'MEAL_REMINDER',
+  'EXERCISE_REMINDER',
   'GENERAL_CHECK_IN',
 ] as const;
 
@@ -30,10 +33,26 @@ export type RoutineEventType =
   | 'NO_RESPONSE'
   | 'RETRY_SCHEDULED'
   | 'COMPLETED'
+  | 'RESCHEDULED'
   | 'MISSED'
   | 'FAMILY_REQUESTED'
   | 'FAMILY_NOTIFIED'
   | 'CANCELLED';
+
+export const ROUTINE_CHANNELS = ['DEVICE_ALERT', 'PHONE_CALL', 'IN_APP'] as const;
+export type RoutineChannel = (typeof ROUTINE_CHANNELS)[number];
+
+export type RecurrenceRule =
+  | { frequency: 'ONCE' }
+  | { frequency: 'DAILY'; interval?: number }
+  | { frequency: 'WEEKLY'; interval?: number; weekdays?: number[] }
+  | { frequency: 'MONTHLY'; interval?: number; dayOfMonth?: number };
+
+export interface EscalationPolicy {
+  retryAfterMinutes: number;
+  maxRetries: number;
+  notifyFamilyAfterMissed: boolean;
+}
 
 export interface RoutineEvent {
   id: string;
@@ -50,6 +69,10 @@ export interface Routine {
   reminderText: string;
   state: RoutineState;
   scheduledFor: string;
+  timezone: string;
+  recurrence: RecurrenceRule;
+  channels: RoutineChannel[];
+  escalation: EscalationPolicy;
   createdAt: string;
   updatedAt: string;
   lastTriggeredAt?: string;
@@ -63,6 +86,11 @@ export interface CreateRoutineInput {
   type: RoutineType;
   scheduledFor: string;
   title?: string;
+  reminderText?: string;
+  timezone?: string;
+  recurrence?: RecurrenceRule;
+  channels?: RoutineChannel[];
+  escalation?: Partial<EscalationPolicy>;
 }
 
 export interface RoutineClockOptions {
@@ -76,5 +104,7 @@ export interface TriggeredRoutine {
     channel: string;
     simulated: boolean;
     acceptedAt: string;
+    externalId?: string;
+    detail?: string;
   };
 }

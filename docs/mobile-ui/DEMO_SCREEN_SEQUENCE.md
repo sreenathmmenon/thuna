@@ -32,7 +32,7 @@ This is the single most important staging decision in the demo, for three reason
    its own machinery has not made that separation; it has decorated it.
 2. **Judges read a debug drawer as unfinished.** A polished consumer surface with a *separate*
    engineering view reads as two deliberate products. The same information inside the phone reads
-   as a prototype with the seams showing.
+   as an unfinished product with the seams showing.
 3. **It removes the worst failure mode.** A presenter who can toggle debug will toggle it under
    pressure, at the exact moment the judge is looking at the elder's screen.
 
@@ -132,7 +132,8 @@ argument.
 
 ### Why this matters to a judge
 
-The first three seconds decide whether the rest of the demo is heard as a product or a prototype.
+The first three seconds decide whether the rest of the demo is understood as a
+complete product implementation or an unfinished product.
 There is no purple gradient, no chat bubble, no avatar, no notification badge, no sidebar. A judge
 who has seen twenty AI demos this week registers the absence immediately.
 

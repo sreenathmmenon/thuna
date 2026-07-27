@@ -4,6 +4,8 @@ export interface ChannelDelivery {
   channel: string;
   simulated: boolean;
   acceptedAt: string;
+  externalId?: string;
+  detail?: string;
 }
 
 export interface ChannelAdapter {
@@ -11,8 +13,9 @@ export interface ChannelAdapter {
   startCheckIn(routine: Routine): Promise<ChannelDelivery>;
 }
 
-// Optional providers implement this boundary without changing routine business logic.
-// No provider credentials or live telephony implementation belongs in the core product.
+// Optional providers implement this boundary without changing routine business
+// logic. Credentials remain server-side and provider code remains outside the
+// deterministic routine engine.
 export interface TelephonyChannelAdapter extends ChannelAdapter {
   readonly provider: 'EXOTEL' | 'TWILIO';
   hangUp(externalCallId: string): Promise<void>;

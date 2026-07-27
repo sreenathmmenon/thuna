@@ -13,6 +13,9 @@ deployment, and validation documentation for the current Thuna release.
 - [`CONTINUITY_COMPANION_INTEGRATION_STATUS.md`](CONTINUITY_COMPANION_INTEGRATION_STATUS.md)
   — life events, pending promises, universal intake, daily brief, consent, and
   interruption/resume status.
+- [`PRODUCTION_ELDER_COMPANION.md`](PRODUCTION_ELDER_COMPANION.md) — proactive
+  device-alert, no-response, optional phone-call, voice-outcome, and mobile
+  reliability boundaries.
 
 ## Swiggy Food MCP
 
