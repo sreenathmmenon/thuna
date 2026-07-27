@@ -590,7 +590,11 @@ export const clientApi: ClientApi = {
     const audio = await new Promise<Blob>((resolve, reject) => {
       activeRecorder.addEventListener('error', () => reject(new Error('Recording failed.')), { once: true });
       activeRecorder.addEventListener('stop', () => {
-        resolve(new Blob(audioChunks, { type: activeRecorder.mimeType || 'audio/webm' }));
+        // Sarvam accepts WebM/Opus bytes but its multipart allow-list expects
+        // the base MIME type (`audio/webm`), not the MediaRecorder value
+        // (`audio/webm;codecs=opus`) emitted by Chromium.
+        const mimeType = (activeRecorder.mimeType || 'audio/webm').split(';', 1)[0];
+        resolve(new Blob(audioChunks, { type: mimeType }));
       }, { once: true });
       activeRecorder.stop();
     });
@@ -598,6 +602,9 @@ export const clientApi: ClientApi = {
     recorder = null;
     recorderStream = null;
     audioChunks = [];
+    if (audio.size === 0) {
+      throw new Error('Recording is empty — no microphone audio was captured.');
+    }
     const form = new FormData();
     const extension = audio.type.includes('mp4')
       ? 'mp4'

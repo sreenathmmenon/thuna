@@ -51,6 +51,21 @@ describe('Saaras v3 STT', () => {
     expect(fetcher).toHaveBeenCalledOnce();
   });
 
+  it('normalizes Chromium MediaRecorder MIME parameters for Sarvam', async () => {
+    const fixture = new Blob(['webm-audio'], { type: 'audio/webm;codecs=opus' });
+    const fetcher = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
+      const form = init?.body as FormData;
+      const file = form.get('file');
+      expect(file).toBeInstanceOf(Blob);
+      expect((file as Blob).type).toBe('audio/webm');
+      return Response.json({ transcript: 'Help me order dosa', language_code: 'en-IN' });
+    }) as unknown as typeof fetch;
+
+    const result = await transcribeAudio(fixture, 'recording.webm', fetcher);
+
+    expect(result.transcript).toBe('Help me order dosa');
+  });
+
   it('returns a typed recoverable error for an upstream failure', async () => {
     const fetcher = vi.fn(async () => new Response('unavailable', { status: 503 })) as unknown as typeof fetch;
     await expect(transcribeAudio(new Blob(['audio']), 'clip.webm', fetcher))

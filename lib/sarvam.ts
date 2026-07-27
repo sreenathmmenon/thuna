@@ -55,10 +55,18 @@ export async function transcribeAudio(
   if (audio.size > MAX_AUDIO_BYTES) {
     throw new SarvamError('AUDIO_TOO_LARGE', `Audio must be ${MAX_AUDIO_BYTES} bytes or smaller.`, 413, true);
   }
+  // Browser MediaRecorder values commonly include codec parameters such as
+  // `audio/webm;codecs=opus`. Sarvam accepts those bytes but its multipart
+  // MIME allow-list expects the base value (`audio/webm`).
+  const baseMimeType = audio.type.split(';', 1)[0].trim().toLowerCase();
+  const upload =
+    baseMimeType && baseMimeType !== audio.type
+      ? new Blob([audio], { type: baseMimeType })
+      : audio;
   const form = new FormData();
   form.append('model', 'saaras:v3');
   form.append('mode', 'transcribe');
-  form.append('file', audio, filename);
+  form.append('file', upload, filename);
   const response = await fetcher(`${BASE}/speech-to-text`, {
     method: 'POST',
     headers: { 'api-subscription-key': key() },
