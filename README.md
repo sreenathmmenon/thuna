@@ -6,6 +6,11 @@ memory, family handoff, and continuity across unfinished activities.
 
 **Public product:** https://thuna-production.up.railway.app/
 
+> **Hosted Swiggy notice:** Swiggy currently restricts MCP access from
+> Railway-hosted deployments. Clone this repository and run Thuna locally to
+> test the real Swiggy connection. The hosted product uses the safe simulated
+> food flow because the provider connection is unavailable there.
+
 The product is designed around a simple rule: language models may understand,
 explain, and propose, but deterministic application code owns safety, consent,
 state transitions, and external actions.

@@ -1141,6 +1141,11 @@ export default function ThunaMobile(): JSX.Element {
           />
         </div>
       ) : null}
+
+      <p className="hosted-provider-note" role="note">
+        * Swiggy currently restricts MCP access from Railway-hosted deployments.
+        Clone this repository and run Thuna locally to test the real Swiggy connection.
+      </p>
     </ElderShell>
   );
 }

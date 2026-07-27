@@ -642,6 +642,14 @@ ul { margin: 0; padding: 0; list-style: none; }
   font-size: var(--fs-caption);
 }
 
+.hosted-provider-note {
+  margin: var(--sp-5) var(--sp-2) var(--sp-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.45;
+  text-align: center;
+}
+
 /* ==========================================================================
    Utilities
    ========================================================================== */
