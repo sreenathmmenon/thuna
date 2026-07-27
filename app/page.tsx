@@ -293,6 +293,7 @@ export default function ThunaMobile(): JSX.Element {
   const [textSize, setTextSize] = useState<TextSizeStep>('normal');
   const [replaying, setReplaying] = useState(false);
   const [moreWaysOpen, setMoreWaysOpen] = useState(false);
+  const [greeting, setGreeting] = useState('Hello');
   const [reminderRequest, setReminderRequest] = useState('');
   const [plannedReminder, setPlannedReminder] = useState<PlannedReminder | null>(null);
   const [reminderError, setReminderError] = useState('');
@@ -303,6 +304,10 @@ export default function ThunaMobile(): JSX.Element {
     const requestedArea = new URLSearchParams(window.location.search).get('area');
     if (requestedArea === 'reminders') setArea('reminders');
   }, []);
+
+  useEffect(() => {
+    setGreeting(greetingFor(home?.elderName ?? 'Appa'));
+  }, [home?.elderName]);
 
   const onTextSize = useCallback((step: TextSizeStep) => {
     setTextSize(step);
@@ -693,7 +698,7 @@ export default function ThunaMobile(): JSX.Element {
         <>
           <DeviceAlerts />
           <HomeScreen
-            greeting={greetingFor(home?.elderName ?? 'Appa')}
+            greeting={greeting}
             subtitle="What can I help you with?"
             talkState={talkVisual(voice)}
             onTalk={() => void onTalk()}
